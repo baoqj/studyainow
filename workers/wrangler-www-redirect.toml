@@ -1,0 +1,7 @@
+name = "aibao-www-redirect"
+main = "www-redirect.ts"
+compatibility_date = "2026-04-28"
+
+routes = [
+  { pattern = "www.aibao.me/*", zone_name = "aibao.me" }
+]

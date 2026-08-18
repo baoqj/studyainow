@@ -1,0 +1,16 @@
+{
+  "name": "Study AI Now!",
+  "short_name": "Study AI Now",
+  "description": "Online AI programming courses, practical CLI labs, and learning progress.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8faf7",
+  "theme_color": "#176f5b",
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "419x419",
+      "type": "image/png"
+    }
+  ]
+}

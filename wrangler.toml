@@ -1,0 +1,39 @@
+name = "studyainow-web"
+main = "src/worker.ts"
+compatibility_date = "2026-08-07"
+workers_dev = true
+preview_urls = true
+
+[triggers]
+# Cloudflare Cron uses UTC. The twice-daily trigger is the authoritative jobs
+# crawl (08:00/20:00 Toronto during daylight-saving time). The two-minute
+# trigger advances only an already-enqueued graph backfill; when the queue is
+# empty it performs no LLM call and leaves the crawling cadence unchanged.
+crons = ["0 0,12 * * *", "*/2 * * * *", "15 13 * * *"]
+
+[[routes]]
+pattern = "studyai.now/*"
+zone_name = "studyai.now"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true
+
+[vars]
+APP_ORIGIN = "https://studyai.now"
+EMAIL_RESEND_ENDPOINT_URL = "/api/webhooks/resend"
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "studyainow-db"
+database_id = "a137ab22-a5cc-46f0-957c-9e7ccbd09fbc"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "COURSE_STORAGE"
+bucket_name = "studyainow-storage"

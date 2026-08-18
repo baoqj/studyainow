@@ -1,0 +1,312 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-container: var(--primary-container);
+  --color-primary-fixed-dim: var(--primary-fixed-dim);
+  --color-background: var(--background);
+  --color-on-background: var(--on-background);
+  --color-surface: var(--surface);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-surface-container-lowest: var(--surface-container-lowest);
+  --color-surface-container-low: var(--surface-container-low);
+  --color-surface-container: var(--surface-container);
+  --color-surface-dim: var(--surface-dim);
+  --color-surface-tint: var(--surface-tint);
+  --color-outline: var(--outline);
+  --color-outline-variant: var(--outline-variant);
+  --color-secondary: var(--secondary);
+  --color-on-secondary: var(--on-secondary);
+  --color-secondary-container: var(--secondary-container);
+  
+  --spacing-stack-sm: 8px;
+  --spacing-stack-md: 24px;
+  --spacing-stack-lg: 48px;
+  --spacing-gutter: 24px;
+  --spacing-margin: 32px;
+  --spacing-container-max: 1280px;
+  --spacing-content-max: 720px;
+}
+
+:root {
+  --primary: #3525cd;
+  --on-primary: #ffffff;
+  --primary-container: #4f46e5;
+  --primary-fixed-dim: #c3c0ff;
+  --background: #f9f9ff;
+  --on-background: #141b2b;
+  --surface: #f9f9ff;
+  --on-surface: #141b2b;
+  --on-surface-variant: #464555;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #f1f3ff;
+  --surface-container: #e9edff;
+  --surface-container-high: #e1e8fd;
+  --surface-container-highest: #dce2f7;
+  --surface-dim: #d3daef;
+  --surface-tint: #4d44e3;
+  --outline: #777587;
+  --outline-variant: #c7c4d8;
+  --secondary: #006591;
+  --on-secondary: #ffffff;
+  --secondary-container: #39b8fd;
+  --tertiary: #7e3000;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #a44100;
+  --on-tertiary-container: #ffd2be;
+}
+
+.dark {
+  --primary: #bac3ff;
+  --on-primary: #00006e;
+  --primary-container: #4f46e5;
+  --primary-fixed-dim: #c3c0ff;
+  --background: #071a33;
+  --on-background: #eef6ff;
+  --surface: #0b2442;
+  --on-surface: #eef6ff;
+  --on-surface-variant: #bed2e8;
+  --surface-container-lowest: #0c2949;
+  --surface-container-low: #102f53;
+  --surface-container: #173a61;
+  --surface-container-high: #1d466f;
+  --surface-container-highest: #28547f;
+  --surface-dim: #0f2b4a;
+  --surface-tint: #bac3ff;
+  --outline: #8faac6;
+  --outline-variant: #3d6388;
+  --secondary: #89ccff;
+  --on-secondary: #00344d;
+  --secondary-container: #004c6e;
+  --tertiary: #ffb695;
+  --on-tertiary: #4d1a00;
+  --tertiary-container: #7b2f00;
+  --on-tertiary-container: #ffdbcc;
+}
+
+@utility text-h1 {
+  font-size: 40px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+@utility text-h2 {
+  font-size: 30px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+@utility text-h3 {
+  font-size: 24px;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+@utility text-body-lg {
+  font-size: 18px;
+  line-height: 1.75;
+  font-weight: 400;
+}
+@utility text-body-md {
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+@utility text-label-sm {
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-weight: 500;
+}
+@utility text-code-block {
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+}
+@utility font-h1 { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+@utility font-h2 { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+@utility font-h3 { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+@utility font-body-lg { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+@utility font-body-md { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+@utility font-label-sm { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+@utility font-code-block { font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--on-background);
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--primary-fixed-dim);
+    color: var(--on-background);
+  }
+}
+
+.admin-shell {
+  font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  --admin-page: #f3f7fd;
+  --admin-panel: #ffffff;
+  --admin-panel-muted: #edf5ff;
+  --admin-panel-strong: #dcecff;
+  --admin-text: #102a43;
+  --admin-text-muted: #5b7088;
+  --admin-border: #cddceb;
+  --admin-border-soft: #e2ecf6;
+  --admin-action: #1e5f99;
+  --admin-action-hover: #174d7d;
+  --admin-sidebar: #0b315b;
+  --admin-sidebar-hover: #164a7e;
+  --admin-chart-grid: #d9e6f2;
+  background-color: var(--admin-page);
+  color: var(--admin-text);
+  color-scheme: light;
+}
+
+.dark .admin-shell {
+  --admin-page: #071a33;
+  --admin-panel: #0c2949;
+  --admin-panel-muted: #102f53;
+  --admin-panel-strong: #173f69;
+  --admin-text: #eef6ff;
+  --admin-text-muted: #b6cce2;
+  --admin-border: #35618c;
+  --admin-border-soft: #244d76;
+  --admin-action: #2e78b7;
+  --admin-action-hover: #3b8ccc;
+  --admin-sidebar: #082b50;
+  --admin-sidebar-hover: #164f84;
+  --admin-chart-grid: #315678;
+  color-scheme: dark;
+}
+
+.admin-shell input,
+.admin-shell select,
+.admin-shell textarea,
+.admin-shell button {
+  border-radius: 4px;
+}
+
+.admin-shell input:not(.bg-transparent),
+.admin-shell select,
+.admin-shell textarea {
+  background-color: var(--admin-panel);
+  color: var(--admin-text);
+}
+
+.admin-shell input::placeholder,
+.admin-shell textarea::placeholder {
+  color: var(--admin-text-muted);
+}
+
+.admin-shell select option {
+  background-color: var(--admin-panel);
+  color: var(--admin-text);
+}
+
+.dark .admin-shell :where(.bg-white) {
+  background-color: var(--admin-panel);
+}
+
+.dark .admin-shell :where(.bg-slate-50),
+.dark .admin-shell :where(.bg-slate-100) {
+  background-color: var(--admin-panel-muted);
+}
+
+.dark .admin-shell :where(.bg-slate-200),
+.dark .admin-shell :where(.bg-slate-300) {
+  background-color: var(--admin-panel-strong);
+}
+
+.dark .admin-shell :where(.text-slate-950),
+.dark .admin-shell :where(.text-slate-900),
+.dark .admin-shell :where(.text-slate-800),
+.dark .admin-shell :where(.text-slate-700) {
+  color: var(--admin-text);
+}
+
+.dark .admin-shell :where(.text-slate-600),
+.dark .admin-shell :where(.text-slate-500),
+.dark .admin-shell :where(.text-slate-400) {
+  color: var(--admin-text-muted);
+}
+
+.dark .admin-shell :where(.border-slate-300),
+.dark .admin-shell :where(.border-slate-200) {
+  border-color: var(--admin-border);
+}
+
+.dark .admin-shell :where(.border-slate-100) {
+  border-color: var(--admin-border-soft);
+}
+
+.dark .admin-shell :where(.divide-slate-200) > :not(:last-child),
+.dark .admin-shell :where(.divide-slate-100) > :not(:last-child) {
+  border-color: var(--admin-border-soft);
+}
+
+.dark .admin-shell [class*="hover:bg-slate-50"]:hover,
+.dark .admin-shell [class*="hover:bg-slate-100"]:hover {
+  background-color: var(--admin-panel-strong);
+}
+
+.admin-primary-action {
+  background-color: var(--admin-action);
+  color: #ffffff;
+}
+
+.admin-primary-action:hover:not(:disabled) {
+  background-color: var(--admin-action-hover);
+}
+
+.admin-sidebar-surface {
+  background-color: var(--admin-sidebar);
+  color: #eaf4ff;
+}
+
+.admin-overlay {
+  background-color: rgb(8 43 80 / 45%);
+}
+
+.admin-graph-node {
+  fill: #d8ebff;
+  stroke: #337ebc;
+}
+
+.admin-graph-label {
+  fill: #123a5f;
+}
+
+.dark .admin-graph-node {
+  fill: #1d5688;
+  stroke: #8bc7f5;
+}
+
+.dark .admin-graph-label {
+  fill: #f3f8ff;
+}
+
+.admin-shell table {
+  border-collapse: collapse;
+}
+
+.admin-shell ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-shell ::-webkit-scrollbar-thumb {
+  background: var(--admin-border);
+  border-radius: 999px;
+}
