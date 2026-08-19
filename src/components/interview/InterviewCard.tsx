@@ -2,7 +2,7 @@ import { ArrowRight, Code2, Layers3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { getInterviewSetStartPath, skillDisplayName, type InterviewSet } from '../../data/interviewContent';
+import { getInterviewSetPath, skillDisplayName, type InterviewSet } from '../../data/interviewContent';
 import { getInterviewCopy } from '../../data/interviewCopy';
 import type { AppLocale } from '../../data/courseContent';
 
@@ -10,11 +10,11 @@ export const InterviewCard: React.FC<{ set: InterviewSet }> = ({ set }) => {
   const { i18n } = useTranslation();
   const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const copy = getInterviewCopy(locale);
-  const startPath = getInterviewSetStartPath(set);
+  const setPath = getInterviewSetPath(set);
 
   return (
     <Link
-      to={startPath}
+      to={setPath}
       data-interview-set-id={set.id}
       data-testid="interview-set-card"
       className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full cursor-pointer group"

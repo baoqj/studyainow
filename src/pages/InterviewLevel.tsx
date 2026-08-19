@@ -6,7 +6,7 @@ import { Footer } from '../components/layout/Footer';
 import { DifficultyLadder } from '../components/interview/DifficultyLadder';
 import { MarkdownRenderer } from '../components/course/MarkdownRenderer';
 import { getInterviewCopy, levelDifficultyLabel, readInterviewProgress } from '../data/interviewCopy';
-import { getInterviewLevelPath, getInterviewQuestionPath, getInterviewSet, getInterviewSetStartPath, skillDisplayName } from '../data/interviewContent';
+import { getInterviewLevelPath, getInterviewQuestionPath, getInterviewSet, getInterviewSetPath, skillDisplayName } from '../data/interviewContent';
 import { useTranslation } from 'react-i18next';
 import type { AppLocale } from '../data/courseContent';
 
@@ -35,7 +35,7 @@ export function InterviewLevel() {
                 {copy.breadcrumbSets}
               </Link>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              <Link to={getInterviewSetStartPath(set)} className="rounded px-1 py-0.5 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
+              <Link to={getInterviewSetPath(set)} className="rounded px-1 py-0.5 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
                 {set.title}
               </Link>
               <ArrowRight className="h-4 w-4" aria-hidden="true" />

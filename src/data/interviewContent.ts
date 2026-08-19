@@ -336,6 +336,11 @@ export function getInterviewLevelPath(setId: string, level: InterviewLevel) {
   return `/interviews/${setId}/levels/${level.id}`;
 }
 
+/** 题集根路由：展示题集简介、大纲与完整题目目录。 */
+export function getInterviewSetPath(set: InterviewSet) {
+  return `/interviews/${set.id}`;
+}
+
 export function getInterviewQuestionPath(setId: string, question: InterviewQuestion) {
   return `/interviews/${setId}/levels/${question.level}/questions/${question.id}`;
 }

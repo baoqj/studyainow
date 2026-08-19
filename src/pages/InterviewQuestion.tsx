@@ -12,7 +12,7 @@ import {
   getInterviewQuestion,
   getInterviewQuestionPath,
   getInterviewSet,
-  getInterviewSetStartPath,
+  getInterviewSetPath,
   getQuestionNeighbors,
   getQuestionPosition,
   skillDisplayName,
@@ -99,7 +99,7 @@ export function InterviewQuestion() {
               {copy.breadcrumbSets}
             </Link>
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            <Link to={getInterviewSetStartPath(set)} className="rounded px-1 py-0.5 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
+            <Link to={getInterviewSetPath(set)} className="rounded px-1 py-0.5 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
               {set.title}
             </Link>
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
