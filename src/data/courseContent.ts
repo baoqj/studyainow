@@ -1,12 +1,19 @@
 import outlineRaw from '../../../Course/claude-code-guide/course-outline.md?raw';
 import hermesOutlineRaw from '../../../Course/hermes-agent-guide/course-outline.md?raw';
 import codexOutlineRaw from '../../../Course/Codex/course-outline.md?raw';
-import codexCoverUrl from '../../../Course/Codex/pics/cover-codex.jpg?url';
-import fdeEnCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course/assets/cover-en.png?url';
-import fdeZhCnCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course_CN/assets/cover-zh-CN.png?url';
-import fdeZhTwCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course_ZH_TW/assets/cover-zh-TW.png?url';
-import fdeFrCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course_FR/assets/cover-fr.png?url';
-import fdeEsCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course_ES/assets/cover-es.png?url';
+
+// 所有课程封面统一存放于仓库外的 img/cover/course/（与 Course/ 同属私有资源）。
+// 文件名约定：<标识>-cover.<ext>；缺失时返回空串，界面使用品牌渐变占位，构建不失败。
+const courseCoverModules = import.meta.glob('../../../img/cover/course/*.{png,jpg,jpeg,webp,svg}', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>;
+
+function courseCover(name: string) {
+  const entry = Object.entries(courseCoverModules).find(([path]) => path.split('/').at(-1)?.startsWith(`${name}.`));
+  return entry?.[1] ?? '';
+}
 
 export const supportedLocales = ['zh-CN', 'zh-TW', 'en', 'fr', 'es'] as const;
 export type AppLocale = (typeof supportedLocales)[number];
@@ -122,12 +129,6 @@ const aiCourseChapterModules = import.meta.glob('../../../Course/15/*/*/index.md
 const aiCourseLessonModules = import.meta.glob('../../../Course/15/*/*/lessons/*.md', {
   eager: true,
   query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
-
-const aiCourseCoverModules = import.meta.glob('../../../Course/15/*/assets/cover.svg', {
-  eager: true,
-  query: '?url',
   import: 'default',
 }) as Record<string, string>;
 
@@ -384,11 +385,11 @@ const fdeDirectoryByLocale: Record<AppLocale, string> = {
 };
 
 const fdeCoverByLocale: Record<AppLocale, string> = {
-  'zh-CN': fdeZhCnCoverUrl,
-  'zh-TW': fdeZhTwCoverUrl,
-  en: fdeEnCoverUrl,
-  fr: fdeFrCoverUrl,
-  es: fdeEsCoverUrl,
+  'zh-CN': courseCover('fde-cover-zh-CN'),
+  'zh-TW': courseCover('fde-cover-zh-TW'),
+  en: courseCover('fde-cover-en'),
+  fr: courseCover('fde-cover-fr'),
+  es: courseCover('fde-cover-es'),
 };
 
 const fdeSkillsByChapter = [
@@ -506,7 +507,7 @@ function buildAiPracticeCourses(): Course[] {
       const access = arrayMeta(meta, 'access').filter((value): value is CourseAccess => value === 'free' || value === 'pro');
       const chapterModules = Object.fromEntries(Object.entries(aiCourseChapterModules).filter(([path]) => courseDirectoryFromPath(path) === directory));
       const lessonModules = Object.fromEntries(Object.entries(aiCourseLessonModules).filter(([path]) => courseDirectoryFromPath(path) === directory));
-      const imageUrl = Object.entries(aiCourseCoverModules).find(([path]) => courseDirectoryFromPath(path) === directory)?.[1] ?? '';
+      const imageUrl = courseCover(`${directory}-cover`);
       const learningMapUrl = Object.entries(aiCourseLearningMapModules).find(([path]) => courseDirectoryFromPath(path) === directory)?.[1];
       const chapters = buildCourseChapters({ chapterModules, lessonModules, minChapter: 1, maxChapter: 10 });
       const id = stringMeta(meta, 'id', directory.replace(/^\d{2}-/, ''));
@@ -598,9 +599,9 @@ export function getCatalogCourses(locale: AppLocale = 'zh-CN') {
   const makeCourse = (id: string, content: CourseCopy, chapters: Chapter[], difficulty: CourseDifficulty, access: CourseAccess[], imageUrl: string, authorIconText: string): Course => ({
     id, ...content, difficulty, lessons: chapters.reduce((total, chapter) => total + chapter.lessons.length, 0), access, imageUrl, authorIconText, authorDomain: 'studyai.now', skills: [], chapters,
   });
-  const claude = makeCourse('claude-code-guide', copy.claude, claudeChapters, 'Beginner', ['free', 'pro'], '', 'AI');
-  const hermes = makeCourse('hermes-agent-guide', copy.hermes, hermesChapters, 'Beginner', ['free', 'pro'], '', 'HA');
-  const codex = makeCourse('codex-tutorial', copy.codex, codexChapters, 'Beginner', ['free', 'pro'], codexCoverUrl, 'CX');
+  const claude = makeCourse('claude-code-guide', copy.claude, claudeChapters, 'Beginner', ['free', 'pro'], courseCover('claude-code-guide-cover'), 'AI');
+  const hermes = makeCourse('hermes-agent-guide', copy.hermes, hermesChapters, 'Beginner', ['free', 'pro'], courseCover('hermes-agent-guide-cover'), 'HA');
+  const codex = makeCourse('codex-tutorial', copy.codex, codexChapters, 'Beginner', ['free', 'pro'], courseCover('codex-cover'), 'CX');
   const fde = buildFdeCourse(locale);
   const courses = [
     claude,

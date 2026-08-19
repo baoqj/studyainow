@@ -22,7 +22,7 @@ for (const course of catalog) {
   assert.match(outline, /## 教学目标/, `${course.id}: missing learning objectives`);
   assert.match(outline, /## 课程分类与筛选标签/, `${course.id}: missing filter classification`);
   assert.match(outline, /## Skill 知识点/, `${course.id}: missing skill taxonomy`);
-  await readFile(resolve(courseRoot, 'assets/cover.svg'), 'utf8');
+  await readFile(resolve(codeRoot, `../img/cover/course/${course.directory}-cover.svg`), 'utf8');
   await readFile(resolve(courseRoot, 'assets/learning-map.svg'), 'utf8');
   await readFile(resolve(courseRoot, 'source-mainline.md'), 'utf8');
   const manifest = JSON.parse(await readFile(resolve(courseRoot, 'courseware/interaction-manifest.json'), 'utf8'));

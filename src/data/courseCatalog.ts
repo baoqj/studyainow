@@ -1,10 +1,3 @@
-import codexCoverUrl from '../../../Course/Codex/pics/cover-codex.jpg?url';
-import fdeEnCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course/assets/cover-en.png?url';
-import fdeZhCnCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course_CN/assets/cover-zh-CN.png?url';
-import fdeZhTwCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course_ZH_TW/assets/cover-zh-TW.png?url';
-import fdeFrCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course_FR/assets/cover-fr.png?url';
-import fdeEsCoverUrl from '../../../Course/ForwardDeployedEngineer/AI_FDE_Course_ES/assets/cover-es.png?url';
-
 /**
  * Catalogue-only data. Keep this file intentionally compact: detailed
  * outlines and lesson Markdown belong to the lazy courseContent route chunk.
@@ -35,7 +28,14 @@ export type CatalogCourse = {
 type CourseCopy = Pick<CatalogCourse, 'title' | 'subtitle' | 'description' | 'topic'>;
 type CourseSeed = Omit<CatalogCourse, 'status' | 'imageUrl' | 'authorIconText' | 'authorDomain' | 'lessonRouteIds' | 'lessons' | 'chapters'>;
 
-const aiCourseCoverModules = import.meta.glob('../../../Course/15/*/assets/cover.svg', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+// 所有课程封面统一存放于仓库外的 img/cover/course/（与 Course/ 同属私有资源）。
+// 文件名约定：<标识>-cover.<ext>；缺失时返回空串，卡片使用品牌渐变占位，构建不失败。
+const courseCoverModules = import.meta.glob('../../../img/cover/course/*.{png,jpg,jpeg,webp,svg}', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+
+function courseCover(name: string) {
+  const entry = Object.entries(courseCoverModules).find(([path]) => path.split('/').at(-1)?.startsWith(`${name}.`));
+  return entry?.[1] ?? '';
+}
 
 const publishedLabel: Record<AppLocale, string> = {
   'zh-CN': '已上线', 'zh-TW': '已上線', en: 'Published', fr: 'Publié', es: 'Publicado',
@@ -85,9 +85,9 @@ function lessonRoutes(chapterLessons: Array<[number, number]>) {
 }
 
 const coreDefinitions = [
-  { id: 'claude-code-guide', copy: 'claude' as const, lessonRouteIds: lessonRoutes([[1, 3], [2, 3], [3, 4], [4, 3], [5, 3], [6, 3], [7, 4], [8, 4], [9, 3], [10, 4], [11, 3], [12, 3], [13, 3], [14, 3], [15, 4]]), chapters: 15, access: ['free', 'pro'] as CourseAccess[], icon: 'AI', imageUrl: '', skills: ['Claude Code', 'Vibe Coding', 'AI Agent', 'CLI', 'MCP'] },
-  { id: 'hermes-agent-guide', copy: 'hermes' as const, lessonRouteIds: lessonRoutes(Array.from({ length: 20 }, (_, index) => [index, 3] as [number, number])), chapters: 20, access: ['free', 'pro'] as CourseAccess[], icon: 'HA', imageUrl: '', skills: ['Hermes Agent', 'AI Agent', 'CLI', 'Skills', 'MCP', 'Gateway', 'Memory'] },
-  { id: 'codex-tutorial', copy: 'codex' as const, lessonRouteIds: lessonRoutes(Array.from({ length: 20 }, (_, index) => [index, index < 4 ? 3 : 4] as [number, number])), chapters: 20, access: ['free', 'pro'] as CourseAccess[], icon: 'CX', imageUrl: codexCoverUrl, skills: ['OpenAI Codex', 'CLI', 'IDE', 'Cloud Tasks', 'MCP', 'Skills'] },
+  { id: 'claude-code-guide', copy: 'claude' as const, lessonRouteIds: lessonRoutes([[1, 3], [2, 3], [3, 4], [4, 3], [5, 3], [6, 3], [7, 4], [8, 4], [9, 3], [10, 4], [11, 3], [12, 3], [13, 3], [14, 3], [15, 4]]), chapters: 15, access: ['free', 'pro'] as CourseAccess[], icon: 'AI', imageUrl: courseCover('claude-code-guide-cover'), skills: ['Claude Code', 'Vibe Coding', 'AI Agent', 'CLI', 'MCP'] },
+  { id: 'hermes-agent-guide', copy: 'hermes' as const, lessonRouteIds: lessonRoutes(Array.from({ length: 20 }, (_, index) => [index, 3] as [number, number])), chapters: 20, access: ['free', 'pro'] as CourseAccess[], icon: 'HA', imageUrl: courseCover('hermes-agent-guide-cover'), skills: ['Hermes Agent', 'AI Agent', 'CLI', 'Skills', 'MCP', 'Gateway', 'Memory'] },
+  { id: 'codex-tutorial', copy: 'codex' as const, lessonRouteIds: lessonRoutes(Array.from({ length: 20 }, (_, index) => [index, index < 4 ? 3 : 4] as [number, number])), chapters: 20, access: ['free', 'pro'] as CourseAccess[], icon: 'CX', imageUrl: courseCover('codex-cover'), skills: ['OpenAI Codex', 'CLI', 'IDE', 'Cloud Tasks', 'MCP', 'Skills'] },
 ];
 
 const fdeCopy: Record<AppLocale, CourseCopy> = {
@@ -136,11 +136,11 @@ const fdeSkills = [
 ];
 
 const fdeCovers: Record<AppLocale, string> = {
-  'zh-CN': fdeZhCnCoverUrl,
-  'zh-TW': fdeZhTwCoverUrl,
-  en: fdeEnCoverUrl,
-  fr: fdeFrCoverUrl,
-  es: fdeEsCoverUrl,
+  'zh-CN': courseCover('fde-cover-zh-CN'),
+  'zh-TW': courseCover('fde-cover-zh-TW'),
+  en: courseCover('fde-cover-en'),
+  fr: courseCover('fde-cover-fr'),
+  es: courseCover('fde-cover-es'),
 };
 
 const aiLessonRouteIds = lessonRoutes(Array.from({ length: 10 }, (_, index) => [index + 1, 3] as [number, number]));
@@ -197,7 +197,7 @@ export function getCatalogCourses(locale: AppLocale = 'zh-CN') {
     lessons: aiLessonRouteIds.length,
     chapters: 10,
     status: publishedLabel[locale],
-    imageUrl: Object.entries(aiCourseCoverModules).find(([path]) => path.includes(`/Course/15/${aiDirectory(seed.id)}/`))?.[1] ?? '',
+    imageUrl: courseCover(`${aiDirectory(seed.id)}-cover`),
     authorIconText: `AI${seed.id.slice(0, 1).toUpperCase()}`,
     authorDomain: 'studyai.now',
     lessonRouteIds: aiLessonRouteIds,

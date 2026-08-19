@@ -68,11 +68,18 @@ const levelModules = import.meta.glob('../../../Interview/ai_engineering_progres
   import: 'default',
 }) as Record<string, string>;
 
-const coverModules = import.meta.glob('../../../Interview/ai_engineering_progressive_assessment_levels_1_6/assets/cover.*', {
+// 面试题集封面统一存放于仓库外的 img/cover/interview/（与 Course/ 同属私有资源）。
+// 文件名约定：<题集标识>-cover.<ext>；缺失时返回空串，界面使用品牌渐变占位。
+const coverModules = import.meta.glob('../../../img/cover/interview/*.{png,jpg,jpeg,webp,svg}', {
   eager: true,
   query: '?url',
   import: 'default',
 }) as Record<string, string>;
+
+function interviewCover(name: string) {
+  const entry = Object.entries(coverModules).find(([path]) => path.split('/').at(-1)?.startsWith(`${name}.`));
+  return entry?.[1] ?? '';
+}
 
 /** 题集级元数据（各界面语言）。 */
 const setCopy: Record<AppLocale, SetCopy> = {
@@ -296,7 +303,7 @@ export function getInterviewSets(locale: AppLocale = 'zh-CN'): InterviewSet[] {
     id: INTERVIEW_SET_ID,
     ...copy,
     skills,
-    coverUrl: Object.values(coverModules)[0] ?? '',
+    coverUrl: interviewCover('ai-engineering-progressive-assessment-cover'),
     levelCount: levels.length,
     questionCount: levels.reduce((total, level) => total + level.questions.length, 0),
     levels,

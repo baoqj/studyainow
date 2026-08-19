@@ -25,7 +25,7 @@
 npm run verify:interview   # 结构、围栏闭合、非英文本与英文源代码块逐字节一致
 ```
 
-封面图从 `Interview/.../assets/cover.*` 通过 glob 引入；缺失时卡片自动使用品牌渐变占位，构建不会失败。
+封面图统一存放于 `../../img/cover/interview/`（文件名约定 `<题集标识>-cover.<ext>`，本单元为 `ai-engineering-progressive-assessment-cover.jpg`），由 `import.meta.glob` 按前缀引入；缺失时卡片自动使用品牌渐变占位，构建不会失败。
 
 ## 练习进度
 

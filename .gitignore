@@ -28,6 +28,9 @@ blob-report/
 # Private interview question bank and generated covers (same policy as /Course/).
 /Interview/
 
+# Private cover artwork and image resources (same policy as /Course/).
+/img/
+
 # Course authoring and generated seed payloads that embed private curriculum text
 /scripts/generate-ai-practice-courses.mjs
 /scripts/generate-fde-courses.mjs
