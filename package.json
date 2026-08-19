@@ -18,6 +18,7 @@
     "verify:ai-courses": "node scripts/verify-ai-practice-courses.mjs",
     "generate:fde": "node scripts/generate-fde-courses.mjs && node scripts/generate-fde-graph-migration.mjs",
     "verify:fde": "node scripts/verify-fde-course.mjs",
+    "verify:interview": "node scripts/verify-interview-content.mjs",
     "import:fde": "node scripts/import-fde-course-sources.mjs",
     "import:course-knowledge-sources": "tsx scripts/import-course-knowledge-sources.ts",
     "verify:donations": "tsx scripts/verify-donation-webhook.ts",

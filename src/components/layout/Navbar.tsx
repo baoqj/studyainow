@@ -119,6 +119,9 @@ export function Navbar({
             <Link to="/courses" className={navLinkClass('/courses')}>
               {copy.public.courses}
             </Link>
+            <Link to="/interviews" className={navLinkClass('/interviews')}>
+              {copy.public.interviews}
+            </Link>
             <Link to="/jobs" className={navLinkClass('/jobs')}>
               {copy.public.jobs}
             </Link>

@@ -21,6 +21,10 @@ const About = lazy(() => import('./pages/About').then((module) => ({ default: mo
 const Contact = lazy(() => import('./pages/Contact').then((module) => ({ default: module.Contact })));
 const Jobs = lazy(() => import('./pages/Jobs').then((module) => ({ default: module.Jobs })));
 const JobDetail = lazy(() => import('./pages/JobDetail').then((module) => ({ default: module.JobDetail })));
+const InterviewCatalog = lazy(() => import('./pages/InterviewCatalog').then((module) => ({ default: module.InterviewCatalog })));
+const InterviewSetStart = lazy(() => import('./pages/InterviewSetStart').then((module) => ({ default: module.InterviewSetStart })));
+const InterviewLevel = lazy(() => import('./pages/InterviewLevel').then((module) => ({ default: module.InterviewLevel })));
+const InterviewQuestion = lazy(() => import('./pages/InterviewQuestion').then((module) => ({ default: module.InterviewQuestion })));
 const UserDashboard = lazy(() => import('./pages/user/UserDashboard').then((module) => ({ default: module.UserDashboard })));
 const MyCourses = lazy(() => import('./pages/user/MyCourses').then((module) => ({ default: module.MyCourses })));
 const CreatorStudio = lazy(() => import('./pages/user/CreatorStudio').then((module) => ({ default: module.CreatorStudio })));
@@ -95,6 +99,10 @@ function AppRoutes() {
         <Route path="/courses/:courseId" element={<CourseStart />} />
         <Route path="/courses/:courseId/chapters/:chapterId" element={<CourseDetail />} />
         <Route path="/courses/:courseId/chapters/:chapterId/lessons/:lessonId" element={<CourseDetail />} />
+        <Route path="/interviews" element={<InterviewCatalog />} />
+        <Route path="/interviews/:setId" element={<InterviewSetStart />} />
+        <Route path="/interviews/:setId/levels/:levelId" element={<InterviewLevel />} />
+        <Route path="/interviews/:setId/levels/:levelId/questions/:questionId" element={<InterviewQuestion />} />
 
         <Route path="/me" element={<RequireAuth><UserLayout /></RequireAuth>}>
           <Route index element={<UserDashboard />} />

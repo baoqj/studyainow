@@ -25,6 +25,9 @@ blob-report/
 /src/course-content/
 /src/course-contents/
 
+# Private interview question bank and generated covers (same policy as /Course/).
+/Interview/
+
 # Course authoring and generated seed payloads that embed private curriculum text
 /scripts/generate-ai-practice-courses.mjs
 /scripts/generate-fde-courses.mjs
