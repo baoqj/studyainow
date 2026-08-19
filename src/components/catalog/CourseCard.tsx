@@ -2,13 +2,16 @@ import { BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { getCatalogCourseStartPath, type CatalogCourse, type CourseDifficulty } from '../../data/courseCatalog';
+import { getCatalogCourseStartPath, resolveCatalogCourseCover, type CatalogCourse, type CourseDifficulty } from '../../data/courseCatalog';
+import { useTheme } from '../../lib/theme';
 
 export type CourseData = CatalogCourse;
 
 export const CourseCard: React.FC<{ course: CourseData }> = ({ course }) => {
   const { t } = useTranslation();
+  const isDark = useTheme();
   const coursePath = getCatalogCourseStartPath(course);
+  const imageUrl = resolveCatalogCourseCover(course.id, isDark, course.imageUrl);
   const isPublished = ['已上线', '已上線', 'Published', 'Publié', 'Publicado'].includes(course.status ?? '');
   const chapterCount = course.chapters;
 
@@ -20,10 +23,10 @@ export const CourseCard: React.FC<{ course: CourseData }> = ({ course }) => {
       className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col h-full cursor-pointer group"
     >
       <div className="relative h-48 overflow-hidden">
-        {course.imageUrl ? (
+        {imageUrl ? (
           <img
             alt={course.title}
-            src={course.imageUrl}
+            src={imageUrl}
             loading="lazy"
             decoding="async"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"

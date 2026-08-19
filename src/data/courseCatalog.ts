@@ -37,6 +37,20 @@ function courseCover(name: string) {
   return entry?.[1] ?? '';
 }
 
+// 提供 dark / light 双版本封面的课程：文件名约定 <base>-dark.<ext> / <base>-light.<ext>。
+const themeCoverVariants: Record<string, string> = {
+  'claude-code-guide': 'claude-code',
+  'hermes-agent-guide': 'hermes-agent',
+};
+
+/** 按当前 UI 主题解析课程封面；无主题版本时回退到通用封面（fallback）。 */
+export function resolveCatalogCourseCover(courseId: string, isDark: boolean, fallback = '') {
+  const base = themeCoverVariants[courseId];
+  if (!base) return fallback;
+  const themed = courseCover(`${base}-${isDark ? 'dark' : 'light'}`);
+  return themed || courseCover(`${base}-cover`) || fallback;
+}
+
 const publishedLabel: Record<AppLocale, string> = {
   'zh-CN': '已上线', 'zh-TW': '已上線', en: 'Published', fr: 'Publié', es: 'Publicado',
 };

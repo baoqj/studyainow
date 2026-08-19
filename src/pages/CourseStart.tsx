@@ -3,11 +3,12 @@ import { Link, useParams } from 'react-router-dom';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CourseFooter } from '../components/course/CourseFooter';
 import { CourseNavbar } from '../components/course/CourseNavbar';
-import { getChapterPath, getCourse, getCourseStartPath } from '../data/courseContent';
+import { getChapterPath, getCourse, getCourseStartPath, resolveCourseCover } from '../data/courseContent';
 import { useTranslation } from 'react-i18next';
 import type { AppLocale } from '../data/courseContent';
 import { fetchCourseAccess, type CourseAccess } from '../lib/account';
 import { trackCourseClick } from '../lib/courseAnalytics';
+import { useTheme } from '../lib/theme';
 
 const skillToggleCopy: Record<AppLocale, { expand: string; collapse: string; count: string }> = {
   'zh-CN': { expand: '展开全部技能', collapse: '收起技能', count: '个技能' },
@@ -20,8 +21,10 @@ const skillToggleCopy: Record<AppLocale, { expand: string; collapse: string; cou
 export function CourseStart() {
   const { courseId } = useParams();
   const { t, i18n } = useTranslation();
+  const isDark = useTheme();
   const course = getCourse(courseId, (i18n.resolvedLanguage ?? i18n.language) as AppLocale);
   const startPath = getCourseStartPath(course);
+  const coverUrl = resolveCourseCover(course.id, isDark, course.imageUrl);
   const [access, setAccess] = useState<CourseAccess | null>(null);
   const [skillsExpanded, setSkillsExpanded] = useState(false);
   const [skillsExceedThreeRows, setSkillsExceedThreeRows] = useState(false);
@@ -150,8 +153,8 @@ export function CourseStart() {
             </div>
 
             <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
-              {course.imageUrl ? (
-                <img src={course.imageUrl} alt={course.title} className="h-72 w-full object-cover" />
+              {coverUrl ? (
+                <img src={coverUrl} alt={course.title} className="h-72 w-full object-cover" />
               ) : (
                 <div className="flex h-72 items-center justify-center bg-[linear-gradient(135deg,#102a43,#0ea5a4)] text-7xl font-black text-white/40">AI</div>
               )}
