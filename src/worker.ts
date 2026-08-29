@@ -57,8 +57,9 @@ import { onRequestGet as getSystemCourseAnalytics } from '../functions/api/admin
 import { onRequestGet as getCommunityCourseAnalytics } from '../functions/api/admin/courses/community';
 import { onRequestPatch as updateCommunityCourse } from '../functions/api/admin/courses/community/[courseId]';
 import { onRequestPost as sendAdminEmailTest } from '../functions/api/admin/email/test';
-import { inspectDueJobUrls, reindexCurrentJobSkillEvidence, runDueSourceSync } from '../functions/_lib/jobs';
+import { inspectDueJobUrls, reindexCurrentJobSkillEvidence, runDueSourceSync, runInitialSourceSync, runPendingJobPresentationRefresh } from '../functions/_lib/jobs';
 import { enqueuePublishedCourseKnowledge, runKnowledgeGraphRefresh } from '../functions/_lib/knowledgeGraph';
+import { runPendingJobVectorIndex } from '../functions/_lib/jobVectors';
 import { runEmailLifecycleCampaigns } from '../functions/_lib/emailCampaigns';
 import { resendWebhookPath } from '../functions/_lib/email';
 import { getRouteBootstrapHtml, getRouteMetadata, type RouteMetadata } from './lib/routeMetadata';
@@ -520,6 +521,10 @@ export default {
         return;
       }
       if (controller.cron === '*/2 * * * *') {
+        // Bootstrap one newly enabled official source per maintenance turn;
+        // afterwards the unchanged twice-daily source cadence remains in
+        // charge. This deliberately avoids a burst crawl on deployment.
+        const initialSourceSync = await runInitialSourceSync(env);
         // The first URL-inspection pass is intentionally prioritized after a
         // lifecycle-policy migration. It validates every stored original URL
         // in bounded batches without using a changing source catalogue as
@@ -529,10 +534,14 @@ export default {
           console.log('Scheduled original JD URL inspection advanced', {
             cron: controller.cron,
             scheduledTime: new Date(controller.scheduledTime).toISOString(),
+            initialSourceSync,
             urlInspection,
           });
           return;
         }
+        // Public excerpts are derived from immutable normalized job versions.
+        // Refresh presentation without recrawling or changing semantic inputs.
+        const presentation = await runPendingJobPresentationRefresh(env, 32);
         // Rebuild approved dictionary evidence first, then prioritize the
         // current JD queue so the DeepSeek pass can add reviewed candidates
         // and related concepts without waiting behind course discovery.
@@ -549,13 +558,17 @@ export default {
           : Number(courseBacklog?.value ?? 0) > 0 ? 'course_chapter'
             : undefined;
         const knowledgeGraph = await runKnowledgeGraphRefresh(env, 16, sourceType);
+        const jobVectors = await runPendingJobVectorIndex(env, 24);
         console.log('Scheduled knowledge-graph backfill finished', {
           cron: controller.cron,
           scheduledTime: new Date(controller.scheduledTime).toISOString(),
+          initialSourceSync,
           urlInspection,
+          presentation,
           reindex,
           sourceType,
           knowledgeGraph,
+          jobVectors,
         });
         return;
       }
@@ -573,6 +586,7 @@ export default {
         "SELECT COUNT(*) AS value FROM knowledge_refresh_queue WHERE source_type = 'job_version' AND status IN ('pending', 'error', 'running')",
       ).first<{ value: number }>();
       const knowledgeGraph = await runKnowledgeGraphRefresh(env, 16, Number(jobBacklog?.value ?? 0) > 0 ? 'job_version' : undefined);
+      const jobVectors = await runPendingJobVectorIndex(env, 24);
       console.log('Scheduled AI job-source synchronization finished', {
         cron: controller.cron,
         scheduledTime: new Date(controller.scheduledTime).toISOString(),
@@ -581,6 +595,7 @@ export default {
         courseQueue: courseDiscovery.status === 'fulfilled' ? courseDiscovery.value : { error: courseDiscovery.reason instanceof Error ? courseDiscovery.reason.message : 'Unknown error' },
         evidenceReindex: reindex.status === 'fulfilled' ? reindex.value : { error: reindex.reason instanceof Error ? reindex.reason.message : 'Unknown error' },
         knowledgeGraph,
+        jobVectors,
       });
     } catch (error) {
       console.error('Scheduled AI job-source synchronization failed', {

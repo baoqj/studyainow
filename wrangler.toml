@@ -28,6 +28,18 @@ EMAIL_RESEND_ENDPOINT_URL = "/api/webhooks/resend"
 [observability]
 enabled = true
 
+[limits]
+# Source sync uses bounded chunks, but a complete official-ATS pass can exceed
+# the default CPU budget. The cron cadence itself is unchanged.
+cpu_ms = 300_000
+
+[ai]
+binding = "AI"
+
+[[vectorize]]
+binding = "JOB_VECTORS"
+index_name = "studyainow-job-vectors-v1"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "studyainow-db"

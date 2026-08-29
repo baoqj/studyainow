@@ -23,7 +23,8 @@ assert.match(graph, /Return JSON only/, 'LLM output must be structured before pe
 assert.match(graph, /SKILL_GRAPH_LLM_ENDPOINT/, 'The model provider endpoint must be explicit and configurable');
 assert.match(graph, /LLM_DEEPSEEK_API/, 'DeepSeek must be the preferred configured provider');
 assert.match(graph, /LLM_MEGANOVA_API/, 'MegaNova must be available as the configured fallback provider');
-assert.match(graph, /if \(!configs\.length\) return \{ configured: false/, 'No model key must leave the queue safely pending');
+assert.match(graph, /if \(!configs\.length && !env\.AI\) return \{ configured: false/, 'Without an external provider or Workers AI, the queue must stay safely pending');
+assert.match(graph, /if \(env\.AI\)/, 'Workers AI must be an explicit, optional fallback rather than an assumed binding');
 assert.match(graph, /MAX_ANALYSIS_CONCURRENCY = 3/, 'LLM extraction must have bounded provider concurrency');
 assert.match(graph, /claimQueueBatch\(env\.DB, max, sourceType\)/, 'The batch must lock a distinct work set before fan-out');
 assert.match(graph, /Promise\.all\(Array\.from\(\{ length: Math\.min\(MAX_ANALYSIS_CONCURRENCY, queues\.length\) \}, worker\)\)/, 'The backlog must process in bounded parallel batches');

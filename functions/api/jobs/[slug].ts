@@ -1,6 +1,7 @@
 import { getAuthUser } from '../../_lib/auth';
 import { errorResponse, json } from '../../_lib/http';
 import { parseJobRichText } from '../../_lib/jobRichText';
+import { loadPublicJobTags } from '../../_lib/jobTags';
 
 type JobRow = {
   id: string;
@@ -15,7 +16,10 @@ type JobRow = {
   source_attribution: string;
   display_policy: string;
   source_published_at: string | null;
+  source_updated_at: string | null;
   collected_at: string | null;
+  first_collected_at: string | null;
+  last_seen_at: string | null;
   suspected_expired_at: string | null;
   status: string;
   language: string;
@@ -72,7 +76,9 @@ export const onRequestGet: PagesFunction<Env, 'slug'> = async ({ request, env, p
     const job = await env.DB.prepare(
       `SELECT job_postings.id, job_postings.slug, job_postings.title, job_postings.location_text, job_postings.remote_type,
               job_postings.employment_type, job_postings.source_url, job_postings.original_source_url, job_postings.apply_url, job_postings.source_attribution,
-              job_postings.display_policy, job_postings.source_published_at, job_postings.collected_at, job_postings.suspected_expired_at, job_postings.status,
+              job_postings.display_policy, job_postings.source_published_at, job_postings.source_updated_at,
+              job_postings.collected_at, job_postings.first_collected_at, job_postings.last_seen_at,
+              job_postings.suspected_expired_at, job_postings.status,
               job_postings.language,
               job_postings.current_version_id, companies.name AS company_name, companies.slug AS company_slug,
               companies.career_url AS company_career_url,
@@ -83,17 +89,19 @@ export const onRequestGet: PagesFunction<Env, 'slug'> = async ({ request, env, p
     ).bind(user?.id ?? '', slug).first<JobRow>();
     if (!job) return json({ error: 'Job not found' }, { status: 404 });
 
-    const [sectionsResult, evidenceResult, coverageResult, locationsResult] = await Promise.all([
+    const [sectionsResult, evidenceResult, coverageResult, locationsResult, tagsByVersion] = await Promise.all([
       env.DB.prepare(
         `SELECT id, section_key, title, public_text, rich_content_json, order_index FROM job_sections
-         WHERE job_id = ? AND version_id = ? ORDER BY order_index`,
+         WHERE job_id = ? AND version_id = ? AND visibility = 'public' ORDER BY order_index`,
       ).bind(job.id, job.current_version_id).all<SectionRow>(),
       env.DB.prepare(
         `SELECT job_skill_evidence.id, job_skill_evidence.section_id, job_skill_evidence.skill_id,
                 job_skill_evidence.evidence_text, job_skill_evidence.start_offset, job_skill_evidence.end_offset,
                 job_skill_evidence.requirement_level, job_skill_evidence.confidence,
                 skills.name_zh, skills.name_en, skills.slug, skills.category
-         FROM job_skill_evidence JOIN skills ON skills.id = job_skill_evidence.skill_id
+         FROM job_skill_evidence
+         JOIN job_sections ON job_sections.id = job_skill_evidence.section_id AND job_sections.visibility = 'public'
+         JOIN skills ON skills.id = job_skill_evidence.skill_id
          WHERE job_skill_evidence.job_id = ? AND job_skill_evidence.version_id = ?
            AND job_skill_evidence.review_status = 'approved'
          ORDER BY job_skill_evidence.section_id, job_skill_evidence.start_offset`,
@@ -104,6 +112,7 @@ export const onRequestGet: PagesFunction<Env, 'slug'> = async ({ request, env, p
                 lesson_skill_coverage.coverage_score, lesson_skill_coverage.is_primary, lesson_skill_coverage.learning_outcome
          FROM lesson_skill_coverage
          JOIN job_skill_evidence ON job_skill_evidence.skill_id = lesson_skill_coverage.skill_id
+         JOIN job_sections ON job_sections.id = job_skill_evidence.section_id AND job_sections.visibility = 'public'
          WHERE job_skill_evidence.job_id = ? AND job_skill_evidence.version_id = ?
            AND job_skill_evidence.review_status = 'approved' AND lesson_skill_coverage.review_status = 'approved'
          GROUP BY lesson_skill_coverage.id
@@ -114,6 +123,7 @@ export const onRequestGet: PagesFunction<Env, 'slug'> = async ({ request, env, p
          FROM job_locations WHERE job_id = ? AND version_id = ?
          ORDER BY is_primary DESC, confidence DESC, created_at ASC`,
       ).bind(job.id, job.current_version_id).all<LocationRow>(),
+      loadPublicJobTags(env.DB, [job.current_version_id]),
     ]);
 
     const evidenceBySection = new Map<string, EvidenceRow[]>();
@@ -191,13 +201,19 @@ export const onRequestGet: PagesFunction<Env, 'slug'> = async ({ request, env, p
         })),
         remoteType: job.remote_type,
         employmentType: job.employment_type,
-        sourceUrl: job.original_source_url || job.source_url,
+        // source_url follows a validated same-site canonical redirect while
+        // original_source_url remains immutable lifecycle/audit evidence.
+        sourceUrl: job.source_url,
         sourceAttribution: job.source_attribution,
         applyUrl: job.apply_url,
         displayPolicy: job.display_policy,
         publishedAt: job.source_published_at ?? job.collected_at,
+        sourceUpdatedAt: job.source_updated_at,
+        firstCollectedAt: job.first_collected_at,
         collectedAt: job.collected_at,
+        lastSeenAt: job.last_seen_at,
         suspectedExpiredAt: job.suspected_expired_at,
+        tags: tagsByVersion.get(job.current_version_id) ?? [],
         status: job.status,
         language: job.language,
         bookmarked: Boolean(job.bookmarked),

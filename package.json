@@ -18,6 +18,8 @@
     "verify:codex": "node scripts/verify-codex-curriculum.mjs",
     "verify:jobs": "tsx scripts/verify-job-skill-map.ts",
     "verify:knowledge-graph": "tsx scripts/verify-knowledge-graph.ts",
+    "verify:job-semantic-index": "tsx scripts/verify-job-semantic-index.ts",
+    "test:job-presentation": "tsx scripts/verify-job-presentation.ts",
     "generate:ai-courses": "node scripts/generate-ai-practice-courses.mjs && node scripts/generate-ai-course-graph-migration.mjs",
     "verify:ai-courses": "node scripts/verify-ai-practice-courses.mjs",
     "generate:fde": "node scripts/generate-fde-courses.mjs && node scripts/generate-fde-graph-migration.mjs",

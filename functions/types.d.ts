@@ -4,6 +4,10 @@ interface Env {
   DB: D1Database;
   COURSE_STORAGE: R2Bucket;
   ASSETS: Fetcher;
+  /** Multilingual job-description analysis and embeddings via Workers AI. */
+  AI?: Ai;
+  /** One current semantic vector per collected job. */
+  JOB_VECTORS?: Vectorize;
   APP_ORIGIN?: string;
   CF_PAGES_BRANCH?: string;
   /** Primary production secret configured in Cloudflare Workers. */
