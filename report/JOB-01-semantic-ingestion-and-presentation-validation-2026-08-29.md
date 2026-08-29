@@ -59,3 +59,21 @@ excerpt.
    not return `analysis_only` sections.
 4. Confirm source bootstrap is bounded and that source errors do not stop the
    existing URL-inspection/knowledge-graph cron paths.
+
+## Production evidence
+
+- D1 ledger recorded `0041_reconcile_job_presentation_policy.sql` as migration
+  id `42` on 2026-08-29.
+- The reconciled policy query returned 16 `metadata_only` sources and 2
+  `excerpt` sources (Databricks and Equifax).
+- The visibility query returned 1,132 affected historical sections as
+  `analysis_only` immediately after the migration; no conversion removes the
+  original private analysis source.
+- Worker version `71baadce-f0ed-411d-8c7e-7d2daffba14f` deployed with D1,
+  R2, Workers AI, and `studyainow-job-vectors-v1` bindings.
+- Production `/api/jobs` returns the `tags` field. A policy-controlled
+  Equifax detail returned zero public sections before its bounded excerpt
+  refresh, and did not return its stored private text.
+- The two-minute maintenance run has begun advancing presentation work without
+  waiting for the older URL-inspection backlog. Rebuild remains intentionally
+  rate-limited to 32 jobs per turn.
