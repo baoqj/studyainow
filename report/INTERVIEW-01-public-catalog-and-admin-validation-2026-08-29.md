@@ -25,7 +25,16 @@ Release scope: public interview-practice catalog, five-language content validati
 
 ## Production verification
 
-Pending deployment. This section is updated only after the Worker deployment and direct `studyai.now` checks complete.
+Deployed `studyainow-web` version `94881991-1dae-4aa5-9e4e-eba3d9fe60ce` to `studyai.now/*`.
+
+| Check | Result |
+| --- | --- |
+| `/interviews` | Redirects to the localized canonical route and renders the interview catalog (`h1`: `面试题集`). |
+| `/interviews/inference-engine-scheduler` | Redirects to the localized canonical route and renders the five-stage scheduler outline. |
+| `/interviews/inference-engine-scheduler/levels/4/questions/4-1` | Renders the question and its interactive inference-engine trace. |
+| `/api/admin/interviews` without a session | Returns `401 {"error":"Authentication required"}`. |
+| `/admin` without a session | Redirects to `/login?next=%2Fadmin`; the login page renders. |
+| Production browser pass | All checks above completed with no `pageerror` events. |
 
 ## Rollback
 
