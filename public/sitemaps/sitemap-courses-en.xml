@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://studyai.now/en/courses/claude-code-guide</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/claude-code-guide" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/courses/claude-code-guide" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/claude-code-guide" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/courses/hermes-agent-guide</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/hermes-agent-guide" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/courses/hermes-agent-guide" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/hermes-agent-guide" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/courses/codex-tutorial</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/codex-tutorial" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/courses/codex-tutorial" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/codex-tutorial" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/courses/forward-deployed-engineering</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/forward-deployed-engineering" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/courses/forward-deployed-engineering" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/forward-deployed-engineering" />
+  </url>
+</urlset>

@@ -1,16 +1,20 @@
 import { Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { SITE_SEO } from '../../data/courseSeo';
+import type { AppLocale } from '../../data/courseContent';
 
 export function HeroSection({ query, onQueryChange }: { query: string; onQueryChange: (value: string) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
+  const seoCopy = SITE_SEO[locale] ?? SITE_SEO['zh-CN'];
   return (
     <section className="bg-surface-container-low py-stack-lg border-b border-outline-variant">
       <div className="mx-auto flex w-full max-w-[1920px] flex-col items-center px-4 text-center sm:px-6 lg:px-8">
         <h1 className="font-h1 text-h1 text-on-surface mb-stack-sm max-w-[800px]">
-          {t('catalog.hero.title')}
+          {seoCopy.homeH1}
         </h1>
         <p className="font-body-lg text-body-lg text-on-surface-variant mb-stack-md max-w-content-max">
-          {t('catalog.hero.body')}
+          {seoCopy.description}
         </p>
         <div className="relative w-full max-w-[600px] shadow-sm">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-outline w-6 h-6" />

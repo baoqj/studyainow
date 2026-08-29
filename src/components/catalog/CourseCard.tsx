@@ -2,15 +2,15 @@ import { BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { getCatalogCourseStartPath, resolveCatalogCourseCover, type CatalogCourse, type CourseDifficulty } from '../../data/courseCatalog';
+import { getCatalogCourseStartPath, resolveCatalogCourseCover, type AppLocale, type CatalogCourse, type CourseDifficulty } from '../../data/courseCatalog';
 import { useTheme } from '../../lib/theme';
 
 export type CourseData = CatalogCourse;
 
 export const CourseCard: React.FC<{ course: CourseData }> = ({ course }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isDark = useTheme();
-  const coursePath = getCatalogCourseStartPath(course);
+  const coursePath = getCatalogCourseStartPath(course, (i18n.resolvedLanguage ?? i18n.language) as AppLocale);
   const imageUrl = resolveCatalogCourseCover(course.id, isDark, course.imageUrl);
   const isPublished = ['已上线', '已上線', 'Published', 'Publié', 'Publicado'].includes(course.status ?? '');
   const chapterCount = course.chapters;

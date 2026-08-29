@@ -1,4 +1,19 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /me/
+
+User-agent: Mediapartners-Google
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /me/
+
+User-agent: Google-Display-Ads-Bot
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /me/
 
 Sitemap: https://studyai.now/sitemap.xml

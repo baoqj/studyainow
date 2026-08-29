@@ -13,13 +13,32 @@ const worker = readFileSync(new URL('../src/worker.ts', import.meta.url), 'utf8'
 const migration = readFileSync(new URL('../migrations/0031_contact_rate_limits.sql', import.meta.url), 'utf8');
 const robots = readFileSync(new URL('../public/robots.txt', import.meta.url), 'utf8');
 const sitemap = readFileSync(new URL('../public/sitemap.xml', import.meta.url), 'utf8');
+const sitemapPages = readFileSync(new URL('../public/sitemaps/sitemap-pages.xml', import.meta.url), 'utf8');
 const catalog = readFileSync(new URL('../src/data/courseCatalog.ts', import.meta.url), 'utf8');
 
 for (const route of ['/privacy', '/terms', '/about', '/contact']) {
   assert.match(app, new RegExp(`<Route path="${route}"`), `missing public ${route} route`);
-  assert.match(sitemap, new RegExp(`<loc>https://studyai\\.now${route}</loc>`), `sitemap is missing ${route}`);
 }
-assert.match(sitemap, /<loc>https:\/\/studyai\.now\/jobs<\/loc>/, 'sitemap is missing the public jobs route');
+
+for (const route of ['/privacy', '/terms', '/about', '/contact']) {
+  if (route === '/contact') {
+    assert.doesNotMatch(sitemapPages, new RegExp(`<loc>https://studyai\\.now/zh-cn${route}</loc>`), 'contact is intentionally noindex');
+  } else {
+    assert.match(sitemapPages, new RegExp(`<loc>https://studyai\\.now/zh-cn${route}</loc>`), `Chinese sitemap is missing ${route}`);
+    assert.match(sitemapPages, new RegExp(`<loc>https://studyai\\.now/en${route}</loc>`), `English sitemap is missing ${route}`);
+  }
+}
+
+for (const route of ['/courses', '/jobs', '/contact']) {
+  assert.doesNotMatch(
+    sitemap,
+    new RegExp(`<loc>https://studyai\\.now${route}</loc>`),
+    `sitemap must exclude noindex or duplicate route ${route}`,
+  );
+}
+
+assert.match(sitemap, /<sitemapindex/, 'the main sitemap must be an index, so independent content families can scale safely');
+assert.match(sitemap, /sitemap-pages\.xml/, 'the public-page sitemap must be included in the index');
 
 for (const locale of ["'zh-CN'", "'zh-TW'", 'en:', 'fr:', 'es:']) {
   assert.match(publicCopy, new RegExp(locale.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), `public-information copy is missing ${locale}`);
@@ -32,12 +51,15 @@ assert.match(contactPage, /fetch\('\/api\/contact'/, 'contact page must submit t
 assert.match(contactPage, /studyainow@mail\.com/, 'contact page must expose the support address');
 
 for (const component of [footer, courseFooter]) {
-  for (const route of ['/courses', '/jobs', '/privacy', '/terms', '/about', '/contact']) {
-    assert.match(component, new RegExp(`to="${route}"`), `footer navigation is missing ${route}`);
+  assert.match(component, /localizedPublicPath/, 'footer links must keep the selected public locale in their URL');
+  for (const route of ['/', '/jobs', '/privacy', '/terms', '/about', '/contact']) {
+    assert.match(component, new RegExp(`localizedPublicPath\\('${route}'`), `footer navigation is missing ${route}`);
   }
 }
 
 assert.match(robots, /^User-agent:\s*\*/m, 'robots.txt needs a Google-compatible user-agent rule');
+assert.match(robots, /^User-agent:\s*Mediapartners-Google$/m, 'robots.txt must explicitly allow the AdSense crawler');
+assert.match(robots, /^User-agent:\s*Google-Display-Ads-Bot$/m, 'robots.txt must explicitly allow the display-ads crawler');
 assert.match(robots, /^Allow:\s*\/$/m, 'robots.txt must allow public pages');
 assert.doesNotMatch(robots, /^Disallow:\s*\/$/m, 'robots.txt must not block the site root');
 

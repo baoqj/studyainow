@@ -1,12 +1,15 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { SupportPrompt } from './components/support/SupportPrompt';
 import { RequireAuth } from './components/auth/RequireAuth';
 import { RequireAdmin } from './components/auth/RequireAdmin';
 import { UserLayout } from './components/user/UserLayout';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
+import { RouteMetadata } from './components/seo/RouteMetadata';
+import { LocalizedPublicRoute } from './components/seo/LocalizedPublicRoute';
 import { getAccountCopy } from './data/accountCopy';
 import type { AppLocale } from './data/courseCatalog';
+import { isLocalizablePublicPath, localeFromPathname, localizedPublicPath } from './lib/localeRoutes';
 import { useTranslation } from 'react-i18next';
 
 const Catalog = lazy(() => import('./pages/Catalog').then((module) => ({ default: module.Catalog })));
@@ -19,6 +22,8 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword').then((module) =
 const LegalPage = lazy(() => import('./pages/LegalPage').then((module) => ({ default: module.LegalPage })));
 const About = lazy(() => import('./pages/About').then((module) => ({ default: module.About })));
 const Contact = lazy(() => import('./pages/Contact').then((module) => ({ default: module.Contact })));
+const TopicHub = lazy(() => import('./pages/TopicHub').then((module) => ({ default: module.TopicHub })));
+const EditorialPolicy = lazy(() => import('./pages/EditorialPolicy').then((module) => ({ default: module.EditorialPolicy })));
 const Jobs = lazy(() => import('./pages/Jobs').then((module) => ({ default: module.Jobs })));
 const JobDetail = lazy(() => import('./pages/JobDetail').then((module) => ({ default: module.JobDetail })));
 const InterviewCatalog = lazy(() => import('./pages/InterviewCatalog').then((module) => ({ default: module.InterviewCatalog })));
@@ -43,6 +48,7 @@ const KnowledgeGraphPreview = lazy(() => import('./pages/admin/KnowledgeGraphPre
 const AdminJobSources = lazy(() => import('./pages/admin/AdminJobSources').then((module) => ({ default: module.AdminJobSources })));
 const AdminJobs = lazy(() => import('./pages/admin/AdminJobs').then((module) => ({ default: module.AdminJobs })));
 const AdminSettings = lazy(() => import('./pages/admin/Settings').then((module) => ({ default: module.Settings })));
+const NotFound = lazy(() => import('./pages/NotFound').then((module) => ({ default: module.NotFound })));
 
 function RouteLoading() {
   const { i18n } = useTranslation();
@@ -69,8 +75,29 @@ function AppRouteBoundary({ children }: { children: ReactNode }) {
   </RouteErrorBoundary>;
 }
 
+/** Replaces legacy public links with a language-owned URL once the SPA loads. */
+function PublicLocaleCanonicalizer() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
+
+  useEffect(() => {
+    if (localeFromPathname(location.pathname) || !isLocalizablePublicPath(location.pathname)) return;
+    navigate({
+      pathname: localizedPublicPath(location.pathname, locale),
+      search: location.search,
+      hash: location.hash,
+    }, { replace: true });
+  }, [i18n.language, locale, location.hash, location.pathname, location.search, navigate]);
+
+  return null;
+}
+
 function AppRoutes() {
   return <AppRouteBoundary>
+    <PublicLocaleCanonicalizer />
+    <RouteMetadata />
     <SupportPrompt />
     <Suspense fallback={<RouteLoading />}>
       <Routes>
@@ -96,6 +123,8 @@ function AppRoutes() {
         <Route path="/terms" element={<LegalPage type="terms" />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/topics/:topicSlug" element={<TopicHub />} />
+        <Route path="/editorial-policy" element={<EditorialPolicy />} />
         <Route path="/courses/:courseId" element={<CourseStart />} />
         <Route path="/courses/:courseId/chapters/:chapterId" element={<CourseDetail />} />
         <Route path="/courses/:courseId/chapters/:chapterId/lessons/:lessonId" element={<CourseDetail />} />
@@ -126,7 +155,26 @@ function AppRoutes() {
         <Route path="/creator/new" element={<Navigate to="/me/creator/new" replace />} />
         <Route path="/resume" element={<Navigate to="/me/resume" replace />} />
         <Route path="/myjob" element={<Navigate to="/me/job" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/:locale" element={<LocalizedPublicRoute />}>
+          <Route index element={<Catalog />} />
+          <Route path="courses" element={<Catalog />} />
+          <Route path="courses/:courseId" element={<CourseStart />} />
+          <Route path="courses/:courseId/chapters/:chapterId" element={<CourseDetail />} />
+          <Route path="courses/:courseId/chapters/:chapterId/lessons/:lessonId" element={<CourseDetail />} />
+          <Route path="interviews" element={<InterviewCatalog />} />
+          <Route path="interviews/:setId" element={<InterviewSetStart />} />
+          <Route path="interviews/:setId/levels/:levelId" element={<InterviewLevel />} />
+          <Route path="interviews/:setId/levels/:levelId/questions/:questionId" element={<InterviewQuestion />} />
+          <Route path="jobs" element={<Jobs />} />
+          <Route path="jobs/:jobSlug" element={<JobDetail />} />
+          <Route path="privacy" element={<LegalPage type="privacy" />} />
+          <Route path="terms" element={<LegalPage type="terms" />} />
+          <Route path="about" element={<About />} />
+          <Route path="contact" element={<Contact />} />
+          <Route path="topics/:topicSlug" element={<TopicHub />} />
+          <Route path="editorial-policy" element={<EditorialPolicy />} />
+        </Route>
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   </AppRouteBoundary>;

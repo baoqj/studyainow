@@ -47,7 +47,7 @@ test('workspace logo returns to the catalogue without a page error', async ({ pa
   await page.goto('/me/creator');
   await expect(page.locator('a[href="/me/creator/new"]').first()).toBeVisible();
   await page.getByRole('link', { name: 'Study AI Now!' }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/(?:zh-cn|zh-tw|en|fr|es)$/);
   await expect(page.getByTestId('catalog-page')).toBeVisible();
   expect(pageErrors).toEqual([]);
 });

@@ -1,6 +1,7 @@
 import outlineRaw from '../../../Course/claude-code-guide/course-outline.md?raw';
 import hermesOutlineRaw from '../../../Course/hermes-agent-guide/course-outline.md?raw';
 import codexOutlineRaw from '../../../Course/Codex/course-outline.md?raw';
+import { localizedPublicPath } from '../lib/localeRoutes';
 
 // 所有课程封面统一存放于仓库外的 img/cover/course/（与 Course/ 同属私有资源）。
 // 文件名约定：<标识>-cover.<ext>；缺失时返回空串，界面使用品牌渐变占位，构建不失败。
@@ -663,20 +664,22 @@ export function getLesson(chapter: Chapter, lessonId?: string) {
   );
 }
 
-export function getLessonPath(courseId: string, lesson: Lesson) {
-  return `/courses/${courseId}/chapters/${lesson.parentRouteId}/lessons/${lesson.routeId}`;
+export function getLessonPath(courseId: string, lesson: Lesson, locale?: AppLocale) {
+  const path = `/courses/${courseId}/chapters/${lesson.parentRouteId}/lessons/${lesson.routeId}`;
+  return locale ? localizedPublicPath(path, locale) : path;
 }
 
-export function getChapterPath(courseId: string, chapter: Chapter) {
-  return `/courses/${courseId}/chapters/${chapter.routeId}`;
+export function getChapterPath(courseId: string, chapter: Chapter, locale?: AppLocale) {
+  const path = `/courses/${courseId}/chapters/${chapter.routeId}`;
+  return locale ? localizedPublicPath(path, locale) : path;
 }
 
-export function getCourseStartPath(course: Course) {
+export function getCourseStartPath(course: Course, locale?: AppLocale) {
   const firstChapter = course.chapters[0];
-  if (!firstChapter) return '/';
+  if (!firstChapter) return locale ? localizedPublicPath('/', locale) : '/';
 
   const firstLesson = firstChapter.lessons[0];
-  return firstLesson ? getLessonPath(course.id, firstLesson) : getChapterPath(course.id, firstChapter);
+  return firstLesson ? getLessonPath(course.id, firstLesson, locale) : getChapterPath(course.id, firstChapter, locale);
 }
 
 export function getLessonNeighbors(course: Course, lesson?: Lesson) {

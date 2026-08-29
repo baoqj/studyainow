@@ -1,0 +1,41 @@
+import type { PublicLocale } from '../lib/localeRoutes';
+
+export type EditorialPolicyCopy = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  h1: string;
+  intro: string;
+  sections: Array<{ heading: string; body: string }>;
+  correctionTitle: string;
+  correctionBody: string;
+  contactLabel: string;
+};
+
+export const EDITORIAL_POLICY: Record<PublicLocale, EditorialPolicyCopy> = {
+  'zh-CN': {
+    eyebrow: '编辑与审核政策', title: 'Study AI Now! 编辑与审核政策 | Study AI Now!', description: '了解 Study AI Now! 如何选择课程主题、验证示例、披露 AI 辅助，并更新或更正公开学习内容。', h1: 'Study AI Now! 编辑与审核政策', intro: 'Study AI Now! 发布的是面向实践的 AI 工程学习材料。课程、主题中心和面试练习在发布前需要经过主题选择、可运行性检查和编辑复核；我们不以堆砌低价值页面作为增长方式。',
+    sections: [{ heading: '选题与原创性', body: '内容围绕真实的工程任务、工具变化、可验证练习和职业能力组织。第三方文档会明确作为来源，不把第三方职位描述或未获授权内容当作原创文章复制发布。' }, { heading: '示例、事实与版本', body: '示例应说明适用环境、预期结果和安全边界。工具、模型或平台行为变化后，会在课程中做实质更新；无法确认的说法会标明限制或移除。' }, { heading: 'AI 辅助的使用', body: 'AI 可以辅助翻译、提纲、练习设计和语言润色，但不会替代事实核查、代码验证、安全判断或发布批准。公开内容由 Study AI Now! 编辑流程审核后发布。' }, { heading: '广告与商业边界', body: '课程保持免费。付费支持不改变课程结论、学习路径或外部来源的选择；广告不应出现在账户、简历、职位工具和错误页面。' }],
+    correctionTitle: '更正与联系', correctionBody: '如果发现事实、代码、版权、翻译或可访问性问题，请写明页面 URL、问题描述和可复现信息。我们会审查并在需要时更正、更新或下线内容。', contactLabel: '联系编辑团队',
+  },
+  'zh-TW': {
+    eyebrow: '編輯與審核政策', title: 'Study AI Now! 編輯與審核政策 | Study AI Now!', description: '了解 Study AI Now! 如何選題、驗證範例、揭露 AI 輔助，以及更新或更正公開學習內容。', h1: 'Study AI Now! 編輯與審核政策', intro: 'Study AI Now! 發布的是重視實作的 AI 工程學習材料。課程、主題中心與面試練習發布前，需經過選題、可執行性檢查和編輯複核；我們不以堆砌低價值頁面追求成長。',
+    sections: [{ heading: '選題與原創性', body: '內容以真實工程任務、工具變化、可驗證實作和職涯能力為主。第三方文件會標示為來源，不會把第三方職缺描述或未授權內容當成原創文章複製發佈。' }, { heading: '範例、事實與版本', body: '範例應說明適用環境、預期結果與安全界線。工具、模型或平台行為改變後，課程會進行實質更新；無法確認的說法會標示限制或移除。' }, { heading: 'AI 輔助的使用', body: 'AI 可協助翻譯、提綱、練習設計和語言潤飾，但不會取代事實查核、程式驗證、安全判斷或發佈批准。公開內容經 Study AI Now! 編輯流程審核後發佈。' }, { heading: '廣告與商業界線', body: '課程維持免費。付費支持不會改變課程結論、學習路徑或外部來源選擇；廣告不應出現在帳戶、履歷、職缺工具和錯誤頁。' }],
+    correctionTitle: '更正與聯絡', correctionBody: '若發現事實、程式、版權、翻譯或無障礙問題，請附上頁面 URL、問題說明和可重現資訊。我們會審查並在需要時更正、更新或下架內容。', contactLabel: '聯絡編輯團隊',
+  },
+  en: {
+    eyebrow: 'Editorial policy', title: 'Study AI Now! Editorial and Review Policy | Study AI Now!', description: 'Learn how Study AI Now! chooses course topics, verifies examples, discloses AI assistance, and corrects public learning content.', h1: 'Study AI Now! editorial and review policy', intro: 'Study AI Now! publishes practical AI engineering learning material. Courses, topic hubs, and interview practice go through topic selection, runnability checks, and editorial review before publication; we do not grow by publishing low-value pages at scale.',
+    sections: [{ heading: 'Topics and originality', body: 'Content is organized around real engineering tasks, tool changes, verifiable practice, and career capabilities. Third-party documentation is identified as a source; we do not republish third-party job descriptions or unlicensed material as original articles.' }, { heading: 'Examples, facts, and versions', body: 'Examples should state their environment, expected result, and safety boundary. When a tool, model, or platform changes materially, course content is updated. Claims that cannot be verified are qualified or removed.' }, { heading: 'Use of AI assistance', body: 'AI may assist with translation, outlines, exercise design, and language editing. It does not replace fact checking, code verification, safety judgement, or publication approval. Public material is approved through the Study AI Now! editorial process.' }, { heading: 'Advertising and commercial boundaries', body: 'Courses remain free. Financial support does not change course conclusions, learning paths, or source selection; ads should not appear on account, resume, job-tool, or error pages.' }],
+    correctionTitle: 'Corrections and contact', correctionBody: 'To report a factual, code, copyright, translation, or accessibility issue, include the page URL, a description, and reproducible information. We review reports and correct, update, or remove content when appropriate.', contactLabel: 'Contact the editorial team',
+  },
+  fr: {
+    eyebrow: 'Politique éditoriale', title: 'Politique éditoriale et de révision de Study AI Now! | Study AI Now!', description: 'Découvrez comment Study AI Now! choisit les sujets, vérifie les exemples, indique l’assistance IA et corrige les contenus publics.', h1: 'Politique éditoriale et de révision de Study AI Now!', intro: 'Study AI Now! publie des ressources pratiques d’ingénierie IA. Les cours, pôles thématiques et exercices d’entretien passent par le choix du sujet, la vérification des exemples et une relecture éditoriale avant publication ; nous ne créons pas de croissance par des pages de faible valeur.',
+    sections: [{ heading: 'Sujets et originalité', body: 'Le contenu s’organise autour de tâches d’ingénierie réelles, de changements d’outils, de pratique vérifiable et de compétences métier. Les documents tiers sont cités comme sources ; les descriptions de poste tierces ou contenus sans autorisation ne sont pas republiés comme articles originaux.' }, { heading: 'Exemples, faits et versions', body: 'Les exemples indiquent leur environnement, résultat attendu et limite de sécurité. En cas de changement important d’un outil, modèle ou service, les cours sont mis à jour. Les affirmations non vérifiables sont nuancées ou retirées.' }, { heading: 'Usage de l’assistance IA', body: 'L’IA peut aider à traduire, structurer ou relire, mais ne remplace pas la vérification des faits, du code, de la sécurité ou l’approbation de publication.' }, { heading: 'Publicité et limites commerciales', body: 'Les cours restent gratuits. Le soutien financier ne modifie ni les conclusions ni les sources ; les publicités ne doivent pas apparaître dans les espaces compte, CV, emploi ou erreur.' }],
+    correctionTitle: 'Corrections et contact', correctionBody: 'Pour signaler un problème factuel, de code, de droits, de traduction ou d’accessibilité, indiquez l’URL, une description et des éléments reproductibles. Nous examinons les signalements et corrigeons, mettons à jour ou retirons le contenu si nécessaire.', contactLabel: 'Contacter l’équipe éditoriale',
+  },
+  es: {
+    eyebrow: 'Política editorial', title: 'Política editorial y de revisión de Study AI Now! | Study AI Now!', description: 'Conoce cómo Study AI Now! elige temas, verifica ejemplos, divulga asistencia de IA y corrige contenido público de aprendizaje.', h1: 'Política editorial y de revisión de Study AI Now!', intro: 'Study AI Now! publica material práctico de ingeniería de IA. Los cursos, centros temáticos y ejercicios de entrevista pasan por selección de tema, comprobación de ejecución y revisión editorial antes de publicarse; no buscamos crecer mediante páginas de poco valor.',
+    sections: [{ heading: 'Temas y originalidad', body: 'El contenido se organiza alrededor de tareas reales de ingeniería, cambios de herramientas, práctica verificable y capacidades profesionales. La documentación de terceros se identifica como fuente; no republicamos descripciones de empleo de terceros ni material sin licencia como artículos originales.' }, { heading: 'Ejemplos, hechos y versiones', body: 'Los ejemplos indican entorno, resultado esperado y límite de seguridad. Cuando una herramienta, modelo o plataforma cambia de forma material, actualizamos el curso. Las afirmaciones no verificables se matizan o eliminan.' }, { heading: 'Uso de asistencia de IA', body: 'La IA puede ayudar con traducción, esquemas, ejercicios y edición lingüística, pero no sustituye la verificación de hechos, código, seguridad ni la aprobación de publicación.' }, { heading: 'Publicidad y límites comerciales', body: 'Los cursos siguen siendo gratuitos. El apoyo económico no cambia conclusiones, rutas de aprendizaje ni fuentes; no deben aparecer anuncios en cuentas, CV, herramientas de empleo ni páginas de error.' }],
+    correctionTitle: 'Correcciones y contacto', correctionBody: 'Para informar un problema de hechos, código, derechos, traducción o accesibilidad, incluye la URL, una descripción y datos reproducibles. Revisamos los avisos y corregimos, actualizamos o retiramos contenido cuando corresponde.', contactLabel: 'Contactar al equipo editorial',
+  },
+};

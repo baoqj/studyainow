@@ -61,6 +61,8 @@ import { inspectDueJobUrls, reindexCurrentJobSkillEvidence, runDueSourceSync } f
 import { enqueuePublishedCourseKnowledge, runKnowledgeGraphRefresh } from '../functions/_lib/knowledgeGraph';
 import { runEmailLifecycleCampaigns } from '../functions/_lib/emailCampaigns';
 import { resendWebhookPath } from '../functions/_lib/email';
+import { getRouteBootstrapHtml, getRouteMetadata, type RouteMetadata } from './lib/routeMetadata';
+import { canonicalPublicPathname } from './lib/localeRoutes';
 
 type Params = Record<string, string | undefined>;
 
@@ -91,22 +93,120 @@ function documentContentSecurityPolicy(nonce: string) {
   ].join('; ');
 }
 
+function escapeHtmlAttribute(value: string) {
+  return value.replace(/[&<>'"]/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+  })[character] ?? character);
+}
+
+function routeSeoHead(metadata: RouteMetadata, nonce: string) {
+  const alternates = metadata.alternates.map((alternate) => (
+    `<link rel="alternate" hreflang="${escapeHtmlAttribute(alternate.hreflang)}" href="${escapeHtmlAttribute(alternate.href)}" data-studyainow-alternate="true">`
+  )).join('');
+  const structuredData = JSON.stringify(metadata.structuredData).replace(/</g, '\\u003c');
+  return `${alternates}<script id="studyainow-route-structured-data" type="application/ld+json" nonce="${nonce}">${structuredData}</script>`;
+}
+
 async function assetResponse(request: Request, env: Env) {
+  const requestUrl = new URL(request.url);
+  const canonicalPathname = canonicalPublicPathname(requestUrl.pathname);
+  if (canonicalPathname && (request.method === 'GET' || request.method === 'HEAD')) {
+    const redirectUrl = new URL(request.url);
+    redirectUrl.pathname = canonicalPathname;
+    return new Response(null, {
+      status: 301,
+      headers: {
+        location: redirectUrl.toString(),
+        'cache-control': 'public, max-age=3600',
+      },
+    });
+  }
+
   const response = await env.ASSETS.fetch(request);
   if (!response.headers.get('content-type')?.toLowerCase().includes('text/html')) return response;
 
+  const pathname = requestUrl.pathname;
+  const routeMetadata = getRouteMetadata(pathname);
+  const bootstrapHtml = getRouteBootstrapHtml(pathname);
   const nonce = createCspNonce();
   const headers = new Headers(response.headers);
   headers.set('content-security-policy', documentContentSecurityPolicy(nonce));
+  headers.set('cache-control', 'public, max-age=0, must-revalidate');
+  headers.set('x-robots-tag', routeMetadata.robots);
   const htmlResponse = new Response(request.method === 'HEAD' ? null : response.body, {
-    status: response.status,
-    statusText: response.statusText,
+    status: routeMetadata.isKnownRoute ? response.status : 404,
+    statusText: routeMetadata.isKnownRoute ? response.statusText : 'Not Found',
     headers,
   });
 
   if (request.method === 'HEAD') return htmlResponse;
 
   return new HTMLRewriter()
+    .on('html', {
+      element(element) {
+        element.setAttribute('lang', routeMetadata.language);
+      },
+    })
+    .on('head', {
+      element(element) {
+        element.append(routeSeoHead(routeMetadata, nonce), { html: true });
+      },
+    })
+    .on('title', {
+      element(element) {
+        element.setInnerContent(routeMetadata.title);
+      },
+    })
+    .on('meta[name="description"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.description);
+      },
+    })
+    .on('meta[name="robots"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.robots);
+      },
+    })
+    .on('link[rel="canonical"]', {
+      element(element) {
+        element.setAttribute('href', routeMetadata.canonical);
+      },
+    })
+    .on('meta[property="og:title"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.title);
+      },
+    })
+    .on('meta[property="og:description"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.description);
+      },
+    })
+    .on('meta[property="og:url"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.canonical);
+      },
+    })
+    .on('meta[property="og:locale"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.openGraphLocale);
+      },
+    })
+    .on('meta[name="twitter:title"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.title);
+      },
+    })
+    .on('meta[name="twitter:description"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.description);
+      },
+    })
+    .on('div#root', {
+      element(element) {
+        if (bootstrapHtml) element.setInnerContent(bootstrapHtml, { html: true });
+      },
+    })
     .on('script', {
       element(element) {
         element.setAttribute('nonce', nonce);

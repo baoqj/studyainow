@@ -3,6 +3,7 @@ import { BookOpen, CheckCircle2, ChevronDown, ChevronRight, Circle, FileText, Lo
 import { Link } from 'react-router-dom';
 import { getChapterPath, getLessonPath, type Chapter, type Course, type Lesson } from '../../data/courseContent';
 import { useTranslation } from 'react-i18next';
+import type { AppLocale } from '../../data/courseContent';
 
 export function SidebarNavigation({
   course,
@@ -19,7 +20,8 @@ export function SidebarNavigation({
   onNavigate?: () => void;
   lockedChapterNumbers?: Set<number>;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const [openChapterId, setOpenChapterId] = useState(currentChapter.routeId);
   const isDrawer = mode === 'drawer';
 
@@ -68,7 +70,7 @@ export function SidebarNavigation({
               className="mx-2"
             >
               <Link
-                to={getChapterPath(course.id, chapter)}
+                to={getChapterPath(course.id, chapter, locale)}
                 onClick={onNavigate}
                 className={`flex items-start gap-3 rounded-lg px-3 py-3 transition-all ${
                   isActiveChapter
@@ -97,7 +99,7 @@ export function SidebarNavigation({
                     return (
                       <Link
                         key={lesson.routeId}
-                        to={getLessonPath(course.id, lesson)}
+                        to={getLessonPath(course.id, lesson, locale)}
                         onClick={onNavigate}
                         className={`flex items-start gap-2 rounded-md px-3 py-2 text-xs transition-colors ${
                           isActiveLesson

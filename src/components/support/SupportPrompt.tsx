@@ -14,10 +14,6 @@ const ONE_YEAR_SECONDS = 60 * 60 * 24 * 365;
 type PromptState = 'support' | 'success' | 'cancelled' | 'verifying' | 'verification_failed';
 const COFFEE_AMOUNTS = [2, 5, 10] as const;
 
-function hasPromptCookie() {
-  return document.cookie.split('; ').some((cookie) => cookie.startsWith(`${PROMPT_COOKIE}=`));
-}
-
 function recordPromptCookie() {
   document.cookie = `${PROMPT_COOKIE}=1; Max-Age=${ONE_YEAR_SECONDS}; Path=/; SameSite=Lax; Secure`;
 }
@@ -78,14 +74,9 @@ export function SupportPrompt() {
       return;
     }
 
-    if (!hasPromptCookie()) {
-      const timer = window.setTimeout(() => {
-        recordPromptCookie();
-        setPromptState('support');
-        setIsOpen(true);
-      }, 550);
-      return () => window.clearTimeout(timer);
-    }
+    // A donation prompt must never interrupt first paint or a learning flow.
+    // It opens only from the explicit SupportButton event above, or after a
+    // payment return where a confirmation is genuinely useful.
   }, [i18n, location.pathname]);
 
   useEffect(() => {

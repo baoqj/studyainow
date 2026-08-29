@@ -1,11 +1,12 @@
 import { Bell, BookOpen, BriefcaseBusiness, FilePenLine, FileText, Globe, LogOut, Moon, Search, Settings, Sun, User, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { logoutToLogin } from '../../lib/auth';
 import { APP_LOCALES } from '../../i18n';
 import { SupportButton } from '../support/SupportButton';
 import { BrandWordmark } from '../brand/BrandWordmark';
+import { localePathForCurrentRoute, localizedPublicPath, type PublicLocale } from '../../lib/localeRoutes';
 import type { AppLocale } from '../../data/courseContent';
 import { getNavigationCopy } from '../../data/navigationCopy';
 import logoTrans from '../../../../pics/Logo/logo-trans.png';
@@ -26,6 +27,7 @@ export function Navbar({
   const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const copy = getNavigationCopy(locale);
   const location = useLocation();
+  const navigate = useNavigate();
   const [isDark, setIsDark] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
@@ -63,17 +65,28 @@ export function Navbar({
   };
 
   const changeLanguage = (code: string) => {
-    i18n.changeLanguage(code);
+    const nextLocale = code as PublicLocale;
+    void i18n.changeLanguage(nextLocale);
+    const pathname = localePathForCurrentRoute(location.pathname, nextLocale);
+    if (pathname !== location.pathname) navigate({ pathname, search: location.search, hash: location.hash });
     setIsLangDropdownOpen(false);
   }
 
-  const navLinkClass = (path: string) =>
-    [
+  const publicPath = (path: string) => localizedPublicPath(path, locale);
+  const catalogPath = publicPath('/');
+
+  const navLinkClass = (path: string) => {
+    const destination = path === '/courses' ? catalogPath : publicPath(path);
+    const active = path === '/courses'
+      ? location.pathname === catalogPath || location.pathname === publicPath('/courses') || location.pathname.startsWith(`${catalogPath}/courses/`)
+      : location.pathname === destination || location.pathname.startsWith(`${destination}/`);
+    return [
       'font-label-sm text-label-sm tracking-tight flex items-center rounded-lg px-3 py-2 transition-colors duration-200',
-      (location.pathname === path || location.pathname.startsWith(`${path}/`))
+      active
         ? 'bg-[#5d84ae] text-white dark:bg-[#142f55] dark:text-slate-300'
         : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface',
     ].join(' ');
+  };
 
   const userMenuItems = [
     { label: copy.member.dashboard, to: '/me', icon: User },
@@ -111,18 +124,18 @@ export function Navbar({
           {onBrandClick ? <button type="button" onClick={onBrandClick} aria-label={brandClickLabel} className={`min-w-0 shrink items-center gap-2 text-left text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:gap-2.5 ${onMobileBrandClick ? 'hidden md:flex' : 'flex'}`}>
             <img src={logoTrans} alt="" aria-hidden="true" className="h-9 w-9 shrink-0 object-contain sm:h-10 sm:w-10" />
             <BrandWordmark className="text-sm min-[360px]:text-base sm:text-xl" />
-          </button> : <Link to="/courses" aria-label="Study AI Now!" className={`min-w-0 shrink items-center gap-2 text-on-surface sm:gap-2.5 ${onMobileBrandClick ? 'hidden md:flex' : 'flex'}`}>
+          </button> : <Link to={catalogPath} aria-label="Study AI Now!" className={`min-w-0 shrink items-center gap-2 text-on-surface sm:gap-2.5 ${onMobileBrandClick ? 'hidden md:flex' : 'flex'}`}>
             <img src={logoTrans} alt="" aria-hidden="true" className="h-9 w-9 shrink-0 object-contain sm:h-10 sm:w-10" />
             <BrandWordmark className="text-sm min-[360px]:text-base sm:text-xl" />
           </Link>}
           <nav className="hidden md:flex gap-6 h-full items-center">
-            <Link to="/courses" className={navLinkClass('/courses')}>
+            <Link to={catalogPath} className={navLinkClass('/courses')}>
               {copy.public.courses}
             </Link>
-            <Link to="/interviews" className={navLinkClass('/interviews')}>
+            <Link to={publicPath('/interviews')} className={navLinkClass('/interviews')}>
               {copy.public.interviews}
             </Link>
-            <Link to="/jobs" className={navLinkClass('/jobs')}>
+            <Link to={publicPath('/jobs')} className={navLinkClass('/jobs')}>
               {copy.public.jobs}
             </Link>
             <Link to={resumeDestination} className={navLinkClass('/me/resume')}>
