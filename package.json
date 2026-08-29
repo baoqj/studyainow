@@ -32,6 +32,7 @@
     "verify:email-verification": "tsx scripts/verify-email-verification.ts",
     "verify:email": "tsx scripts/verify-email-service.ts",
     "verify:public-pages": "tsx scripts/verify-public-pages.ts",
+    "verify:adsense": "node scripts/verify-adsense-containment.mjs",
     "verify:users": "tsx scripts/verify-user-system.ts",
     "verify:resumes": "tsx scripts/verify-resume-generator.ts",
     "verify:resume-locales": "tsx scripts/verify-resume-locales.ts",
