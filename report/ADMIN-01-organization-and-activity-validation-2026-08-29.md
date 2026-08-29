@@ -53,3 +53,14 @@ this release points to a missing page.
    listed organization/activity tables exist.
 4. Verify an administrator can load organization and user-detail APIs; a
    Leader must be restricted to its own active organization.
+
+## Production evidence
+
+- The remote migration check reported no pending work and confirmed the four
+  organization/activity tables plus the `leader` role constraint.
+- Anonymous `GET /api/auth/me` returned `200` with `user: null`.
+- Anonymous `POST /api/activity/page-view` and
+  `GET /api/admin/organizations` both returned `401`.
+- A real browser navigation to `/admin` redirected to
+  `/login?next=%2Fadmin`, rendered the Login heading, and produced no page
+  errors.
