@@ -30,6 +30,18 @@ Date: 2026-08-29
 - Other independently large feature chunks remain (notably interview, chart, PDF, and resume dependencies). They are outside this course-body release and remain candidates for later route-level splitting.
 - Course/15 translation publication remains guarded by the curriculum localization pipeline. This release does not claim full non-Chinese Course/15 copy.
 
+## Production verification
+
+Deployed `studyainow-web` version `bacca65a-a732-40b2-81f3-29d066ba00a1` to `studyai.now/*`.
+
+| Check | Result |
+| --- | --- |
+| `/zh-cn` | Loaded the course catalogue with no page errors and did **not** request the `courseAnalytics-*` Markdown route chunk. |
+| `/zh-cn/courses/agent-engineering` | Loaded `Agent 工程实战` with no page errors and requested the course Markdown chunk only after navigating to the course. |
+| `/en/courses/agent-engineering` | Redirected to `/zh-cn/courses/agent-engineering`, preserving the source language rather than showing Chinese content at an English URL. |
+| `/en/courses/claude-code-guide` | Stayed on the English URL and rendered `Claude Code: Practical Guide` with no page errors. |
+| Server HTML metadata | Chinese Course/15 route reports `index,follow`; incomplete English Course/15 route reports `noindex,nofollow`; complete English core course reports `index,follow`. |
+
 ## Rollback
 
 Revert this release and redeploy the preceding Worker version. There is no schema change, data rewrite, or content deletion.
