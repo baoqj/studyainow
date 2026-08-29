@@ -42,6 +42,10 @@ export function requireString(value: unknown, name: string) {
   return value.trim();
 }
 
+export function routeParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export function clampInt(value: unknown, min: number, max: number, fallback: number) {
   // URLSearchParams.get() returns null for an omitted optional parameter. Do
   // not coerce it to 0: a paginated endpoint with min=1 would otherwise

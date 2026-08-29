@@ -35,14 +35,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       env.DB.prepare(
         `SELECT users.id, users.email, users.display_name, users.username, users.status,
                 users.created_at, users.updated_at, users.last_login_at, users.avatar_url,
+                users.organization_id, users.organization_role, users.organization_joined_at,
+                organizations.name AS organization_name, organizations.public_id AS organization_public_id,
                 COALESCE((SELECT role FROM user_roles
                   WHERE user_roles.user_id = users.id
-                  ORDER BY CASE role WHEN 'admin' THEN 1 WHEN 'operator' THEN 2 WHEN 'member' THEN 3 ELSE 4 END
+                  ORDER BY CASE role WHEN 'admin' THEN 1 WHEN 'leader' THEN 2 WHEN 'operator' THEN 3 WHEN 'member' THEN 4 ELSE 5 END
                   LIMIT 1), 'user') AS role,
                 COALESCE((SELECT SUM(amount) FROM point_transactions WHERE point_transactions.user_id = users.id), 0) AS points,
                 (SELECT subscriptions.status FROM subscriptions
                   WHERE subscriptions.user_id = users.id ORDER BY subscriptions.created_at DESC LIMIT 1) AS subscription_status
-         FROM users ${where}
+         FROM users LEFT JOIN organizations ON organizations.id = users.organization_id ${where}
          ORDER BY users.created_at DESC
          LIMIT ? OFFSET ?`,
       ).bind(...bindings, limit, (page - 1) * limit).all(),
@@ -52,6 +54,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
                 SUM(CASE WHEN users.status = 'active' THEN 1 ELSE 0 END) AS active,
                 SUM(CASE WHEN EXISTS (SELECT 1 FROM user_roles WHERE user_roles.user_id = users.id AND role = 'member') THEN 1 ELSE 0 END) AS members,
                 SUM(CASE WHEN EXISTS (SELECT 1 FROM user_roles WHERE user_roles.user_id = users.id AND role = 'operator') THEN 1 ELSE 0 END) AS operators,
+                SUM(CASE WHEN EXISTS (SELECT 1 FROM user_roles WHERE user_roles.user_id = users.id AND role = 'leader') THEN 1 ELSE 0 END) AS leaders,
                 SUM(CASE WHEN EXISTS (SELECT 1 FROM user_roles WHERE user_roles.user_id = users.id AND role = 'admin') THEN 1 ELSE 0 END) AS administrators
          FROM users`,
       ).first(),
@@ -62,4 +65,3 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return errorResponse(error);
   }
 };
-

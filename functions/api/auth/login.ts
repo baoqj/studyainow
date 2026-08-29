@@ -42,7 +42,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       throw new ApiError(403, '请先完成邮箱验证，再登录账户');
     }
 
-    const roles = await env.DB.prepare('SELECT role FROM user_roles WHERE user_id = ?').bind(user.id).all<{ role: string }>();
+    const roles = await env.DB.prepare(
+      `SELECT user_roles.role FROM user_roles
+       WHERE user_roles.user_id = ?
+         AND (user_roles.role <> 'leader' OR EXISTS (
+           SELECT 1 FROM users JOIN organizations ON organizations.id = users.organization_id
+           WHERE users.id = user_roles.user_id AND users.organization_role = 'leader'
+             AND organizations.leader_user_id = users.id AND organizations.status = 'active'
+         ))`,
+    ).bind(user.id).all<{ role: string }>();
     const session = await createSession(env.DB, user.id, request);
 
     await env.DB

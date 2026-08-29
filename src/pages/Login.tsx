@@ -34,7 +34,7 @@ export function Login() {
       const data = (await response.json()) as { user: { roles: string[] } };
       const requestedNext = searchParams.get('next');
       const next = requestedNext?.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : null;
-      navigate(data.user.roles.includes('admin') ? '/admin' : next ?? '/me');
+      navigate(data.user.roles.some((role) => role === 'admin' || role === 'leader') ? '/admin' : next ?? '/me');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : t('Login failed'));
     } finally {

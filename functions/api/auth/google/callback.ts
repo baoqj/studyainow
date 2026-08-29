@@ -1,5 +1,6 @@
 import { consumeOAuthState, exchangeGoogleCode, fetchGoogleUserInfo, safeRedirectPath, signInWithGoogle } from '../../../_lib/oauth';
 import { sendSecurityLoginEmail } from '../../../_lib/email';
+import { joinOrganizationByInvitationId } from '../../../_lib/organizations';
 
 function redirectResponse(request: Request, path: string, cookie?: string) {
   const url = new URL(path, new URL(request.url).origin);
@@ -34,10 +35,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       return loginError(request, 'google_failed');
     }
 
-    const redirectTo = safeRedirectPath(await consumeOAuthState(env.DB, state));
+    const oauthState = await consumeOAuthState(env.DB, state);
+    const redirectTo = safeRedirectPath(oauthState.redirectTo);
     const token = await exchangeGoogleCode(env, request, code);
     const profile = await fetchGoogleUserInfo(token.access_token);
     const session = await signInWithGoogle(env, request, profile);
+    if (oauthState.organizationInviteId) {
+      await joinOrganizationByInvitationId(env.DB, session.userId, oauthState.organizationInviteId);
+    }
     if (session.isNewDevice) {
       const recipient = await env.DB.prepare('SELECT email, username, display_name, preferred_locale FROM users WHERE id = ?').bind(session.userId).first<{ email: string; username: string | null; display_name: string; preferred_locale: string | null }>();
       if (recipient) {
@@ -55,7 +60,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
         );
       }
     }
-    const adminRole = await env.DB.prepare("SELECT 1 AS allowed FROM user_roles WHERE user_id = ? AND role = 'admin'")
+    const adminRole = await env.DB.prepare(
+      `SELECT 1 AS allowed FROM user_roles
+       WHERE user_id = ? AND (
+         role = 'admin' OR (role = 'leader' AND EXISTS (
+           SELECT 1 FROM users JOIN organizations ON organizations.id = users.organization_id
+           WHERE users.id = user_roles.user_id AND users.organization_role = 'leader'
+             AND organizations.leader_user_id = users.id AND organizations.status = 'active'
+         ))
+       )`,
+    )
       .bind(session.userId)
       .first<{ allowed: number }>();
 

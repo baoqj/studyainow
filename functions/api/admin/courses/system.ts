@@ -1,11 +1,11 @@
-import { requireAdmin } from '../../../_lib/auth';
 import { ApiError, errorResponse, json } from '../../../_lib/http';
+import { requireAdminOrLeader } from '../../../_lib/organizations';
 
 type CourseRow = { id: string; slug: string; title: string } & Record<string, unknown>;
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    await requireAdmin(env.DB, request);
+    const actor = await requireAdminOrLeader(env.DB, request);
     const requestedCourseId = new URL(request.url).searchParams.get('courseId');
     const courseResult = await env.DB.prepare(
       `SELECT courses.id, courses.slug, courses.title, courses.subtitle, courses.topic, courses.level,
@@ -18,6 +18,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
               (SELECT COUNT(*) FROM lesson_progress
                 WHERE lesson_progress.course_id = courses.id AND lesson_progress.status = 'completed') AS completed_lessons
        FROM courses LEFT JOIN chapters ON chapters.course_id = courses.id
+       ${actor.isAdmin ? '' : "WHERE courses.status = 'published' AND courses.visibility = 'public'"}
        GROUP BY courses.id ORDER BY courses.updated_at DESC`,
     ).all<CourseRow>();
     const courses = courseResult.results;
@@ -25,7 +26,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       ? courses.find((course) => course.id === requestedCourseId || course.slug === requestedCourseId)
       : courses[0];
     if (requestedCourseId && !selected) throw new ApiError(404, 'Course not found');
-    if (!selected) return json({ courses: [], selected: null, chapters: [], trend: [] });
+    if (!selected) return json({ courses: [], selected: null, chapters: [], trend: [], readOnly: !actor.isAdmin });
 
     const [chapters, trend] = await Promise.all([
       env.DB.prepare(
@@ -55,9 +56,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       ).bind(selected.id, selected.id).all(),
     ]);
 
-    return json({ courses, selected, chapters: chapters.results, trend: trend.results });
+    return json({ courses, selected, chapters: chapters.results, trend: trend.results, readOnly: !actor.isAdmin });
   } catch (error) {
     return errorResponse(error);
   }
 };
-

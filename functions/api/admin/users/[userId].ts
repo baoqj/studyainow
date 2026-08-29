@@ -13,22 +13,38 @@ interface UserUpdateBody {
 }
 
 async function userDetail(db: D1Database, userId: string) {
-  const [user, points] = await Promise.all([
+  const [user, points, activitySummary] = await Promise.all([
     db.prepare(
       `SELECT users.id, users.email, users.display_name, users.username, users.status, users.timezone,
               users.bio, users.preferred_locale, users.email_verified_at, users.avatar_url,
               users.created_at, users.updated_at, users.last_login_at,
+              users.organization_id, users.organization_role, users.organization_joined_at,
+              organizations.name AS organization_name, organizations.public_id AS organization_public_id,
               COALESCE((SELECT role FROM user_roles WHERE user_roles.user_id = users.id
-                ORDER BY CASE role WHEN 'admin' THEN 1 WHEN 'operator' THEN 2 WHEN 'member' THEN 3 ELSE 4 END LIMIT 1), 'user') AS role,
+                ORDER BY CASE role WHEN 'admin' THEN 1 WHEN 'leader' THEN 2 WHEN 'operator' THEN 3 WHEN 'member' THEN 4 ELSE 5 END LIMIT 1), 'user') AS role,
+              COALESCE((SELECT role FROM user_roles WHERE user_roles.user_id = users.id AND role <> 'leader'
+                ORDER BY CASE role WHEN 'admin' THEN 1 WHEN 'operator' THEN 2 WHEN 'member' THEN 3 ELSE 4 END LIMIT 1), 'user') AS platform_role,
               COALESCE((SELECT SUM(amount) FROM point_transactions WHERE point_transactions.user_id = users.id), 0) AS points
-       FROM users WHERE users.id = ?`,
+       FROM users LEFT JOIN organizations ON organizations.id = users.organization_id WHERE users.id = ?`,
     ).bind(userId).first(),
     db.prepare(
       `SELECT id, amount, reason, reference_type, reference_id, created_at
        FROM point_transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT 30`,
     ).bind(userId).all(),
+    db.prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM user_activity_events WHERE user_id = ?) AS history,
+         (SELECT COUNT(*) FROM user_activity_events WHERE user_id = ? AND category = 'job') AS jobs,
+         (SELECT COUNT(*) FROM user_activity_events WHERE user_id = ? AND category = 'interview') AS interviews,
+         (SELECT COUNT(*) FROM (
+           SELECT course_id FROM enrollments WHERE user_id = ?
+           UNION SELECT course_id FROM chapter_progress WHERE user_id = ?
+         )) AS courses,
+         (SELECT COUNT(*) FROM resume_source_documents WHERE user_id = ? AND source_type = 'upload') AS uploads,
+         (SELECT COUNT(*) FROM resume_documents WHERE user_id = ?) AS resumes`,
+    ).bind(userId, userId, userId, userId, userId, userId, userId).first(),
   ]);
-  return user ? { user, pointTransactions: points.results } : null;
+  return user ? { user, pointTransactions: points.results, activitySummary } : null;
 }
 
 export const onRequestGet: PagesFunction<Env, 'userId'> = async ({ request, env, params }) => {
@@ -56,6 +72,7 @@ export const onRequestPatch: PagesFunction<Env, 'userId'> = async ({ request, en
     const status = body.status === 'suspended' ? 'suspended' : body.status === 'active' ? 'active' : null;
     if (!status) throw new ApiError(400, 'status must be active or suspended');
     const role = adminRole(body.role);
+    if (role === 'leader') throw new ApiError(400, 'Assign or revoke Leader from the organization page');
     const expectedUpdatedAt = requireString(body.expectedUpdatedAt, 'expectedUpdatedAt');
     const pointsDelta = typeof body.pointsDelta === 'number' && Number.isInteger(body.pointsDelta) ? body.pointsDelta : 0;
     if (Math.abs(pointsDelta) > 100_000) throw new ApiError(400, 'pointsDelta must be between -100000 and 100000');
@@ -73,7 +90,7 @@ export const onRequestPatch: PagesFunction<Env, 'userId'> = async ({ request, en
     const statements: D1PreparedStatement[] = [
       env.DB.prepare(
         `DELETE FROM user_roles
-         WHERE user_id = ? AND EXISTS (SELECT 1 FROM users WHERE id = ? AND updated_at = ?)`,
+         WHERE user_id = ? AND role <> 'leader' AND EXISTS (SELECT 1 FROM users WHERE id = ? AND updated_at = ?)`,
       ).bind(userId, userId, expectedUpdatedAt),
       env.DB.prepare(
         `INSERT INTO user_roles (user_id, role)

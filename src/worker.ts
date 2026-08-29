@@ -7,6 +7,7 @@ import { onRequestPost as forgotPassword } from '../functions/api/auth/password/
 import { onRequestPost as resetPassword } from '../functions/api/auth/password/reset';
 import { onRequestGet as startGoogleAuth } from '../functions/api/auth/google/start';
 import { onRequestGet as completeGoogleAuth } from '../functions/api/auth/google/callback';
+import { onRequestPost as validateOrganizationInvite } from '../functions/api/auth/invites/validate';
 import { onRequestGet as listCourses } from '../functions/api/courses/index';
 import { onRequestGet as getCourseProgress } from '../functions/api/courses/[courseId]/progress';
 import { onRequestGet as getCourseAccess } from '../functions/api/courses/[courseId]/access';
@@ -21,6 +22,7 @@ import { onRequestPost as receiveDonationWebhook } from '../functions/api/donati
 import { onRequestPost as receiveResendWebhook } from '../functions/api/webhooks/resend';
 import { onRequestPost as sendContactMessage } from '../functions/api/contact';
 import { onRequestPost as recordCourseEngagement } from '../functions/api/analytics/course-engagement';
+import { onRequestPost as recordPageView } from '../functions/api/activity/page-view';
 import { onRequestGet as listJobs } from '../functions/api/jobs/index';
 import { onRequestGet as getJob } from '../functions/api/jobs/[slug]';
 import { onRequestGet as listJobBookmarks } from '../functions/api/jobs/bookmarks';
@@ -53,9 +55,20 @@ import { onRequestPost as recordResumeExport } from '../functions/api/resumes/ex
 import { onRequestGet as getAdminOverview } from '../functions/api/admin/overview';
 import { onRequestGet as listAdminUsers } from '../functions/api/admin/users/index';
 import { onRequestGet as getAdminUser, onRequestPatch as updateAdminUser } from '../functions/api/admin/users/[userId]';
+import { onRequestGet as getAdminUserActivity } from '../functions/api/admin/users/[userId]/activity';
 import { onRequestGet as getSystemCourseAnalytics } from '../functions/api/admin/courses/system';
 import { onRequestGet as getCommunityCourseAnalytics } from '../functions/api/admin/courses/community';
 import { onRequestPatch as updateCommunityCourse } from '../functions/api/admin/courses/community/[courseId]';
+import { onRequestGet as listOrganizations, onRequestPost as createOrganization } from '../functions/api/admin/organizations/index';
+import { onRequestGet as getOrganization, onRequestPatch as updateOrganization } from '../functions/api/admin/organizations/[organizationId]';
+import { onRequestGet as getMyOrganization } from '../functions/api/admin/my-organization';
+import { onRequestGet as listOrganizationMembers, onRequestPost as addOrganizationMember, onRequestDelete as removeOrganizationMember } from '../functions/api/admin/organizations/[organizationId]/members';
+import { onRequestPut as setOrganizationLeader } from '../functions/api/admin/organizations/[organizationId]/leader';
+import { onRequestGet as listOrganizationInvites, onRequestPost as createOrganizationInvite } from '../functions/api/admin/organizations/[organizationId]/invites';
+import { onRequestPatch as updateOrganizationInvite } from '../functions/api/admin/organizations/[organizationId]/invites/[inviteId]';
+import { onRequestGet as listOrganizationMessages, onRequestPost as sendOrganizationMessage } from '../functions/api/admin/organizations/[organizationId]/messages';
+import { onRequestGet as listOrganizationAudit } from '../functions/api/admin/organizations/[organizationId]/audit';
+import { onRequestGet as listOrganizationContent } from '../functions/api/admin/organizations/[organizationId]/content';
 import { onRequestPost as sendAdminEmailTest } from '../functions/api/admin/email/test';
 import { inspectDueJobUrls, reindexCurrentJobSkillEvidence, runDueSourceSync, runInitialSourceSync, runPendingJobPresentationRefresh } from '../functions/_lib/jobs';
 import { enqueuePublishedCourseKnowledge, runKnowledgeGraphRefresh } from '../functions/_lib/knowledgeGraph';
@@ -269,6 +282,7 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
   if (pathname === '/api/auth/login') return method === 'POST' ? run(login, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/auth/logout') return method === 'POST' ? run(logout, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/auth/register') return method === 'POST' ? run(register, request, env, ctx) : methodNotAllowed('POST');
+  if (pathname === '/api/auth/invites/validate') return method === 'POST' ? run(validateOrganizationInvite, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/auth/verify') return method === 'GET' ? run(verifyEmail, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/auth/password/forgot') return method === 'POST' ? run(forgotPassword, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/auth/password/reset') return method === 'POST' ? run(resetPassword, request, env, ctx) : methodNotAllowed('POST');
@@ -282,6 +296,7 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
   if (pathname === '/api/profile/password') return method === 'PUT' ? run(updateProfilePassword, request, env, ctx) : methodNotAllowed('PUT');
   if (pathname === '/api/profile/avatar') return method === 'PUT' ? run(updateProfileAvatar, request, env, ctx) : methodNotAllowed('PUT');
   if (pathname === '/api/account/overview') return method === 'GET' ? run(getAccountOverview, request, env, ctx) : methodNotAllowed('GET');
+  if (pathname === '/api/activity/page-view') return method === 'POST' ? run(recordPageView, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/courses') return method === 'GET' ? run(listCourses, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/progress') return method === 'PUT' ? run(saveProgress, request, env, ctx) : methodNotAllowed('PUT');
   if (pathname === '/api/resumes') {
@@ -356,6 +371,12 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
   if (pathname === '/api/admin/overview') return method === 'GET' ? run(getAdminOverview, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/email/test') return method === 'POST' ? run(sendAdminEmailTest, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/admin/users') return method === 'GET' ? run(listAdminUsers, request, env, ctx) : methodNotAllowed('GET');
+  if (pathname === '/api/admin/organizations') {
+    if (method === 'GET') return run(listOrganizations, request, env, ctx);
+    if (method === 'POST') return run(createOrganization, request, env, ctx);
+    return methodNotAllowed('GET, POST');
+  }
+  if (pathname === '/api/admin/my-organization') return method === 'GET' ? run(getMyOrganization, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/courses/system') return method === 'GET' ? run(getSystemCourseAnalytics, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/courses/community') return method === 'GET' ? run(getCommunityCourseAnalytics, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/jobs') return method === 'GET' ? run(listAdminJobs, request, env, ctx) : methodNotAllowed('GET');
@@ -445,6 +466,52 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
     return method === 'PATCH'
       ? run(updateJobSource, request, env, ctx, { sourceId: decodeURIComponent(jobSourceMatch[1]) })
       : methodNotAllowed('PATCH');
+  }
+
+  const adminUserActivityMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)\/activity$/);
+  if (adminUserActivityMatch) {
+    return method === 'GET'
+      ? run(getAdminUserActivity, request, env, ctx, { userId: decodeURIComponent(adminUserActivityMatch[1]) })
+      : methodNotAllowed('GET');
+  }
+
+  const organizationInviteMatch = pathname.match(/^\/api\/admin\/organizations\/([^/]+)\/invites\/([^/]+)$/);
+  if (organizationInviteMatch) {
+    return method === 'PATCH'
+      ? run(updateOrganizationInvite, request, env, ctx, { organizationId: decodeURIComponent(organizationInviteMatch[1]), inviteId: decodeURIComponent(organizationInviteMatch[2]) })
+      : methodNotAllowed('PATCH');
+  }
+
+  const organizationChildMatch = pathname.match(/^\/api\/admin\/organizations\/([^/]+)\/(members|leader|invites|messages|audit|content)$/);
+  if (organizationChildMatch) {
+    const params = { organizationId: decodeURIComponent(organizationChildMatch[1]) };
+    switch (organizationChildMatch[2]) {
+      case 'members':
+        if (method === 'GET') return run(listOrganizationMembers, request, env, ctx, params);
+        if (method === 'POST') return run(addOrganizationMember, request, env, ctx, params);
+        if (method === 'DELETE') return run(removeOrganizationMember, request, env, ctx, params);
+        return methodNotAllowed('GET, POST, DELETE');
+      case 'leader':
+        return method === 'PUT' ? run(setOrganizationLeader, request, env, ctx, params) : methodNotAllowed('PUT');
+      case 'invites':
+        if (method === 'GET') return run(listOrganizationInvites, request, env, ctx, params);
+        if (method === 'POST') return run(createOrganizationInvite, request, env, ctx, params);
+        return methodNotAllowed('GET, POST');
+      case 'messages':
+        if (method === 'GET') return run(listOrganizationMessages, request, env, ctx, params);
+        if (method === 'POST') return run(sendOrganizationMessage, request, env, ctx, params);
+        return methodNotAllowed('GET, POST');
+      case 'audit': return method === 'GET' ? run(listOrganizationAudit, request, env, ctx, params) : methodNotAllowed('GET');
+      case 'content': return method === 'GET' ? run(listOrganizationContent, request, env, ctx, params) : methodNotAllowed('GET');
+    }
+  }
+
+  const organizationMatch = pathname.match(/^\/api\/admin\/organizations\/([^/]+)$/);
+  if (organizationMatch) {
+    const params = { organizationId: decodeURIComponent(organizationMatch[1]) };
+    if (method === 'GET') return run(getOrganization, request, env, ctx, params);
+    if (method === 'PATCH') return run(updateOrganization, request, env, ctx, params);
+    return methodNotAllowed('GET, PATCH');
   }
 
   const adminUserMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)$/);

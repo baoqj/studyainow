@@ -4,16 +4,20 @@ import { Link, useLocation } from 'react-router-dom';
 import { logoutToLogin } from '../../lib/auth';
 
 const titles: Array<[RegExp, string]> = [
+  [/^\/admin\/my-organization/, '我的组织'],
+  [/^\/admin\/organizations/, '组织管理'],
+  [/^\/admin\/overview/, '概览'],
   [/^\/admin\/users/, '用户管理'],
   [/^\/admin\/courses/, '自有课程'],
   [/^\/admin\/community-courses/, '用户课程'],
+  [/^\/admin\/interviews/, '面试题集'],
   [/^\/admin\/knowledge-graph/, '知识图谱'],
   [/^\/admin\/job-sources/, '职位来源'],
   [/^\/admin\/jobs/, '职位列表'],
   [/^\/admin\/settings/, '系统设置'],
 ];
 
-type MePayload = { user: { display_name: string; email: string } | null };
+type MePayload = { user: { display_name: string; email: string; roles?: string[] } | null };
 
 export function AdminTopbar({ onMenu }: { onMenu: () => void }) {
   const location = useLocation();
@@ -70,7 +74,7 @@ export function AdminTopbar({ onMenu }: { onMenu: () => void }) {
             <button className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} aria-label="关闭账户菜单" />
             <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-xl dark:border-[#35618c] dark:bg-[#102f53]">
               <Link to="/admin" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 dark:text-blue-50 dark:hover:bg-[#173f69]">
-                <Settings className="h-4 w-4" />管理面板
+                <Settings className="h-4 w-4" />{user?.roles?.includes('admin') ? '管理面板' : 'Leader 面板'}
               </Link>
               <Link to="/me" onClick={() => setOpen(false)} className="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 dark:text-blue-50 dark:hover:bg-[#173f69]">
                 <UserRound className="h-4 w-4" />我的空间

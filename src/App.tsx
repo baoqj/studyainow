@@ -5,6 +5,7 @@ import { RequireAuth } from './components/auth/RequireAuth';
 import { RequireAdmin } from './components/auth/RequireAdmin';
 import { UserLayout } from './components/user/UserLayout';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
+import { UserActivityTracker } from './components/analytics/UserActivityTracker';
 import { RouteMetadata } from './components/seo/RouteMetadata';
 import { LocalizedPublicRoute } from './components/seo/LocalizedPublicRoute';
 import { getAccountCopy } from './data/accountCopy';
@@ -41,7 +42,11 @@ const UserNotifications = lazy(() => import('./pages/user/UserNotifications').th
 const ProfileBilling = lazy(() => import('./pages/user/ProfileBilling').then((module) => ({ default: module.ProfileBilling })));
 const AdminLayout = lazy(() => import('./components/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })));
 const AdminOverview = lazy(() => import('./pages/admin/AdminOverview').then((module) => ({ default: module.AdminOverview })));
+const AdminEntry = lazy(() => import('./pages/admin/AdminEntry').then((module) => ({ default: module.AdminEntry })));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers').then((module) => ({ default: module.AdminUsers })));
+const AdminUserDetail = lazy(() => import('./pages/admin/AdminUserDetail').then((module) => ({ default: module.AdminUserDetail })));
+const AdminOrganizations = lazy(() => import('./pages/admin/AdminOrganizations').then((module) => ({ default: module.AdminOrganizations })));
+const AdminOrganizationDetail = lazy(() => import('./pages/admin/AdminOrganizationDetail').then((module) => ({ default: module.AdminOrganizationDetail })));
 const AdminSystemCourses = lazy(() => import('./pages/admin/AdminSystemCourses').then((module) => ({ default: module.AdminSystemCourses })));
 const AdminCommunityCourses = lazy(() => import('./pages/admin/AdminCommunityCourses').then((module) => ({ default: module.AdminCommunityCourses })));
 const KnowledgeGraphPreview = lazy(() => import('./pages/admin/KnowledgeGraphPreview').then((module) => ({ default: module.KnowledgeGraphPreview })));
@@ -98,6 +103,7 @@ function AppRoutes() {
   return <AppRouteBoundary>
     <PublicLocaleCanonicalizer />
     <RouteMetadata />
+    <UserActivityTracker />
     <SupportPrompt />
     <Suspense fallback={<RouteLoading />}>
       <Routes>
@@ -110,8 +116,13 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
-          <Route index element={<AdminOverview />} />
+          <Route index element={<AdminEntry />} />
+          <Route path="overview" element={<AdminOverview />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="users/:userId" element={<AdminUserDetail />} />
+          <Route path="organizations" element={<AdminOrganizations />} />
+          <Route path="organizations/:organizationId" element={<AdminOrganizationDetail />} />
+          <Route path="my-organization" element={<AdminOrganizationDetail my />} />
           <Route path="courses" element={<AdminSystemCourses />} />
           <Route path="community-courses" element={<AdminCommunityCourses />} />
           <Route path="knowledge-graph" element={<KnowledgeGraphPreview />} />
