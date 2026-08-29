@@ -25,7 +25,13 @@ This release does not alter front-end course loading and does not publish incomp
 
 ## Production verification
 
-Pending deployment. After deployment, verify that a request without `Authorization: Bearer <CURRICULUM_LOCALIZATION_TOKEN>` receives 401, then run one real bounded outline rewrite before scheduling full course/locale production.
+Deployed `studyainow-web` version `937e903b-e23a-4cea-83bf-62a39333938b` to `studyai.now/*`.
+
+| Check | Result |
+| --- | --- |
+| `POST /api/admin/curriculum/localize` without authorization | Returned `401 Unauthorized curriculum localization request`. |
+| `CURRICULUM_LOCALIZATION_TOKEN` | Generated as a random value, stored as a Cloudflare Worker secret and in the local macOS Keychain for the controlled compiler; its value is not written to the repository or this report. |
+| Bounded real outline rewrite | A single Course/15 `agent-engineering` English outline returned HTTP 200 through `deepseek-v4-pro`; structural validation accepted the result and confirmed it changed from 2,675 source characters to 5,080 localized characters. The test output was intentionally discarded rather than publishing one incomplete locale. |
 
 ## Rollback
 
