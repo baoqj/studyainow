@@ -1,4 +1,5 @@
 import { sha256Base64Url } from './crypto';
+import { estimateTokenCount, recordLlmUsage } from './llmUsage';
 
 export const JOB_EMBEDDING_MODEL = '@cf/baai/bge-m3' as const;
 export const JOB_EMBEDDING_DIMENSIONS = 1024;
@@ -195,12 +196,40 @@ export async function runPendingJobVectorIndex(env: Env, limit = 16) {
   for (const indexes of requestBatches) {
     const chunkRecords = indexes.map((index) => records[index]);
     const chunkDocuments = indexes.map((index) => documents[index]);
+    const startedAt = Date.now();
+    const inputCharacters = chunkDocuments.reduce((total, document) => total + document.length, 0);
+    let usageRecorded = false;
     try {
       const response = await env.AI.run(JOB_EMBEDDING_MODEL, { text: chunkDocuments, truncate_inputs: true });
       const embeddings = 'data' in response && Array.isArray(response.data) ? response.data : [];
       if (embeddings.length !== chunkRecords.length || embeddings.some((embedding) => embedding.length !== JOB_EMBEDDING_DIMENSIONS)) {
         throw new Error(`Workers AI returned an unexpected embedding shape for ${JOB_EMBEDDING_MODEL}`);
       }
+      await recordLlmUsage(env.DB, {
+        userId: null,
+        feature: 'job_embedding',
+        operation: 'embedding',
+        itemType: 'job_vector_batch',
+        itemId: chunkRecords.map((record) => record.job_id).join(',').slice(0, 160),
+        itemLabel: `${chunkRecords.length} job vectors`,
+        metadata: {
+          jobIds: chunkRecords.map((record) => record.job_id).slice(0, 24),
+          versionIds: chunkRecords.map((record) => record.version_id).slice(0, 24),
+          countries: [...new Set(chunkRecords.map((record) => record.country_code ?? 'ZZ'))].slice(0, 12),
+        },
+      }, {
+        provider: 'workers-ai',
+        model: JOB_EMBEDDING_MODEL,
+        promptTokens: estimateTokenCount(chunkDocuments.join('\n\n')),
+        completionTokens: 0,
+        estimated: true,
+        inputCharacters,
+        outputCharacters: 0,
+        requestCount: chunkRecords.length,
+        status: 'completed',
+        durationMs: Date.now() - startedAt,
+      });
+      usageRecorded = true;
 
       const prepared = await Promise.all(chunkRecords.map(async (record, chunkIndex) => {
         const recordTags = (tagsByVersion.get(record.version_id) ?? []).slice(0, 48);
@@ -239,6 +268,28 @@ export async function runPendingJobVectorIndex(env: Env, limit = 16) {
       )));
       indexed += prepared.length;
     } catch (error) {
+      if (!usageRecorded) {
+        await recordLlmUsage(env.DB, {
+          userId: null,
+          feature: 'job_embedding',
+          operation: 'embedding',
+          itemType: 'job_vector_batch',
+          itemId: chunkRecords.map((record) => record.job_id).join(',').slice(0, 160),
+          itemLabel: `${chunkRecords.length} job vectors`,
+          metadata: { jobIds: chunkRecords.map((record) => record.job_id).slice(0, 24) },
+        }, {
+          provider: 'workers-ai',
+          model: JOB_EMBEDDING_MODEL,
+          promptTokens: estimateTokenCount(chunkDocuments.join('\n\n')),
+          completionTokens: 0,
+          estimated: true,
+          inputCharacters,
+          outputCharacters: 0,
+          requestCount: chunkRecords.length,
+          status: 'failed',
+          durationMs: Date.now() - startedAt,
+        });
+      }
       const message = error instanceof Error ? error.message.slice(0, 800) : 'Job vector indexing failed';
       await env.DB.batch(chunkRecords.map((record) => env.DB.prepare(
         `UPDATE job_vector_records

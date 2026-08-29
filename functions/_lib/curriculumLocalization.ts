@@ -1,4 +1,5 @@
 import { ApiError } from './http';
+import { recordOpenAiUsage } from './llmUsage';
 
 export const curriculumLocales = ['zh-TW', 'en', 'fr', 'es'] as const;
 export type CurriculumLocale = (typeof curriculumLocales)[number];
@@ -127,9 +128,14 @@ function validateLocalizedFiles(input: RequestedFile[], value: unknown): Localiz
   });
 }
 
-async function askOneModel(config: LlmConfig, locale: CurriculumLocale, files: RequestedFile[]) {
+async function askOneModel(env: Env, config: LlmConfig, locale: CurriculumLocale, files: RequestedFile[]) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), LLM_TIMEOUT_MS);
+  const startedAt = Date.now();
+  const inputText = JSON.stringify({ locale, files });
+  let body: unknown = {};
+  let content = '';
+  let completed = false;
   try {
     const response = await fetch(config.endpoint, {
       method: 'POST', signal: controller.signal,
@@ -142,19 +148,30 @@ async function askOneModel(config: LlmConfig, locale: CurriculumLocale, files: R
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: systemPrompt(locale) },
-          { role: 'user', content: JSON.stringify({ locale, files }) },
+          { role: 'user', content: inputText },
         ],
       }),
     });
-    const body = await response.json().catch(() => ({}));
+    body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(`HTTP ${response.status}: ${text((body as Record<string, unknown>)?.error, 300)}`);
     const choices = Array.isArray((body as Record<string, unknown>).choices) ? (body as Record<string, unknown>).choices as unknown[] : [];
     const message = choices[0] && typeof choices[0] === 'object' ? (choices[0] as Record<string, unknown>).message : undefined;
-    const content = message && typeof message === 'object' ? text((message as Record<string, unknown>).content, 400_000) : '';
+    content = message && typeof message === 'object' ? text((message as Record<string, unknown>).content, 400_000) : '';
     if (!content) throw new Error('empty completion');
     const parsed = parseJsonCompletion(content);
-    return validateLocalizedFiles(files, parsed.files);
+    const localized = validateLocalizedFiles(files, parsed.files);
+    completed = true;
+    return localized;
   } finally {
+    await recordOpenAiUsage(env.DB, {
+      userId: null,
+      feature: 'curriculum_localization',
+      operation: 'chat_completion',
+      itemType: 'curriculum_batch',
+      itemId: `${locale}:${files.length}:${files[0]?.path ?? 'batch'}`.slice(0, 160),
+      itemLabel: files.map((file) => file.path).join(', ').slice(0, 300),
+      metadata: { locale, fileCount: files.length, paths: files.map((file) => file.path).slice(0, 12) },
+    }, config, body, inputText, content, Date.now() - startedAt, completed ? 'completed' : 'failed');
     clearTimeout(timeout);
   }
 }
@@ -165,7 +182,7 @@ export async function localizeCurriculumFiles(env: Env, locale: CurriculumLocale
   const failures: string[] = [];
   for (const config of configs) {
     try {
-      const localized = await askOneModel(config, locale, files);
+      const localized = await askOneModel(env, config, locale, files);
       return { provider: config.provider, model: config.model, files: localized };
     } catch (error) {
       failures.push(`${config.provider}: ${error instanceof Error ? error.message : 'failed'}`);

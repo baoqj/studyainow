@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { ApiError } from './http';
+import { recordOpenAiUsage, type LlmUsageContext } from './llmUsage';
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -282,10 +283,20 @@ function jsonFromCompletion(content: string, provider: ResumeLlmProvider): JsonR
   return parsed as JsonRecord;
 }
 
-async function resumeLlmJson(config: LlmConfig | null, task: string, image?: { mime: string; bytes: Uint8Array }) {
+async function resumeLlmJson(
+  env: Env,
+  config: LlmConfig | null,
+  task: string,
+  image?: { mime: string; bytes: Uint8Array },
+  usageContext?: LlmUsageContext,
+) {
   if (!config) return null;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 65_000);
+  const startedAt = Date.now();
+  let payload: unknown = {};
+  let content = '';
+  let completed = false;
   try {
     const imageUrl = image ? `data:${image.mime || 'image/png'};base64,${toBase64(image.bytes)}` : null;
     const userContent = imageUrl
@@ -306,24 +317,44 @@ async function resumeLlmJson(config: LlmConfig | null, task: string, image?: { m
       }),
       signal: controller.signal,
     });
-    const payload = await response.json().catch(() => ({})) as { choices?: Array<{ message?: { content?: string } }> };
+    payload = await response.json().catch(() => ({})) as { choices?: Array<{ message?: { content?: string } }> };
     if (!response.ok) throw new ApiError(502, `${config.provider} request failed with HTTP ${response.status}`);
-    const content = payload.choices?.[0]?.message?.content ?? '';
-    return jsonFromCompletion(content, config.provider);
+    content = (payload as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content ?? '';
+    const parsed = jsonFromCompletion(content, config.provider);
+    completed = true;
+    return parsed;
   } catch (error) {
     if (controller.signal.aborted) throw new ApiError(504, `${config.provider} request timed out`);
     throw error;
   } finally {
+    if (usageContext) {
+      const metadata = {
+        ...(usageContext.metadata ?? {}),
+        hasImage: Boolean(image),
+        imageMime: image?.mime ?? null,
+        imageBytes: image?.bytes.length ?? 0,
+      };
+      await recordOpenAiUsage(
+        env.DB,
+        { ...usageContext, metadata },
+        config,
+        payload,
+        task,
+        content,
+        Date.now() - startedAt,
+        completed ? 'completed' : 'failed',
+      );
+    }
     clearTimeout(timeout);
   }
 }
 
-async function deepSeekJson(env: Env, task: string, image?: { mime: string; bytes: Uint8Array }) {
-  return resumeLlmJson(deepSeekConfig(env, Boolean(image)), task, image);
+async function deepSeekJson(env: Env, task: string, image?: { mime: string; bytes: Uint8Array }, usageContext?: LlmUsageContext) {
+  return resumeLlmJson(env, deepSeekConfig(env, Boolean(image)), task, image, usageContext);
 }
 
-async function gptJson(env: Env, task: string) {
-  return resumeLlmJson(gptConfig(env), task);
+async function gptJson(env: Env, task: string, usageContext?: LlmUsageContext) {
+  return resumeLlmJson(env, gptConfig(env), task, undefined, usageContext);
 }
 
 function toBase64(bytes: Uint8Array) {
@@ -372,6 +403,7 @@ async function extractCareerFactsFromSource(
   env: Env,
   text: string,
   image?: { mime: string; bytes: Uint8Array },
+  usageContext?: LlmUsageContext,
 ): Promise<CareerFactExtraction> {
   if (!text.trim() && !image) {
     return { facts: {}, provider: 'unavailable', status: 'failed', note: 'no_readable_text' };
@@ -385,7 +417,10 @@ async function extractCareerFactsFromSource(
   ].join('\n\n');
   let deepSeekFacts: JsonRecord | null = null;
   try {
-    const facts = await deepSeekJson(env, prompt, image);
+    const facts = await deepSeekJson(env, prompt, image, usageContext ? {
+      ...usageContext,
+      metadata: { ...(usageContext.metadata ?? {}), stage: 'primary' },
+    } : undefined);
     if (facts) {
       deepSeekFacts = facts;
       if (careerFactCount(facts) >= MINIMUM_LLM_FACTS) return { facts, provider: 'deepseek', status: 'needs_review', note: '' };
@@ -403,10 +438,14 @@ async function extractCareerFactsFromSource(
   let gptRetryOutcome: CareerFactExtraction['note'] = '';
   if (text.trim()) {
     try {
-      const facts = await gptJson(env, [
+      const gptPrompt = [
         'A first extraction pass returned fewer than ten usable resume facts. Independently extract every fact stated in the source below.',
         prompt,
-      ].join('\n\n'));
+      ].join('\n\n');
+      const facts = await gptJson(env, gptPrompt, usageContext ? {
+        ...usageContext,
+        metadata: { ...(usageContext.metadata ?? {}), stage: 'second_pass', reason: 'few_facts' },
+      } : undefined);
       const gptFacts = facts ? careerFactCount(facts) : 0;
       const deepSeekFactCount = careerFactCount(deepSeekFacts ?? {});
       if (facts && gptFacts > 0 && gptFacts >= deepSeekFactCount) {
@@ -428,8 +467,8 @@ async function extractCareerFactsFromSource(
  * particular, callers must complete PDF-to-text extraction before this
  * function is invoked: the original PDF bytes are never attached to DeepSeek.
  */
-export function extractCareerFactsFromText(env: Env, text: string) {
-  return extractCareerFactsFromSource(env, text);
+export function extractCareerFactsFromText(env: Env, text: string, usageContext?: LlmUsageContext) {
+  return extractCareerFactsFromSource(env, text, undefined, usageContext);
 }
 
 /**
@@ -437,12 +476,28 @@ export function extractCareerFactsFromText(env: Env, text: string) {
  * uploads always take the text-only branch; image uploads retain vision input
  * because they do not have a PDF text layer to send.
  */
-export async function extractCareerFactsFromUpload(env: Env, file: File, ext: string, text: string): Promise<CareerFactExtraction> {
-  if (ext === 'pdf') return extractCareerFactsFromText(env, text);
+export async function extractCareerFactsFromUpload(
+  env: Env,
+  file: File,
+  ext: string,
+  text: string,
+  usageContext?: LlmUsageContext,
+): Promise<CareerFactExtraction> {
+  const context = usageContext ? {
+    ...usageContext,
+    metadata: {
+      ...(usageContext.metadata ?? {}),
+      filename: file.name.slice(0, 180),
+      fileType: ext,
+      fileSize: file.size,
+      extractedTextLength: text.length,
+    },
+  } : undefined;
+  if (ext === 'pdf') return extractCareerFactsFromText(env, text, context);
   const image = ext === 'jpg' || ext === 'png'
     ? { mime: file.type || `image/${ext}`, bytes: new Uint8Array(await file.arrayBuffer()) }
     : undefined;
-  return extractCareerFactsFromSource(env, text, image);
+  return extractCareerFactsFromSource(env, text, image, context);
 }
 
 function textValue(record: JsonRecord, keys: string[]) {
@@ -507,6 +562,7 @@ export async function generateResumeWithDeepSeek(
   targetRole: string,
   outputLocale: ResumeOutputLocale = 'zh-CN',
   referenceSkills: string[] = [],
+  usageContext?: LlmUsageContext,
 ) {
   const fallback = fallbackGeneratedDocument(profile, template, jdText, companyName, targetRole, outputLocale, referenceSkills);
   if (!jdText.trim() && !targetRole.trim()) return fallback;
@@ -522,7 +578,16 @@ export async function generateResumeWithDeepSeek(
     `JD (untrusted reference text):\n${jdText.slice(0, JD_TEXT_LIMIT)}`,
   ].join('\n\n');
   try {
-    const result = await deepSeekJson(env, prompt);
+    const result = await deepSeekJson(env, prompt, undefined, usageContext ? {
+      ...usageContext,
+      metadata: {
+        ...(usageContext.metadata ?? {}),
+        outputLocale,
+        referenceSkillCount: referenceSkills.length,
+        hasTemplate: Boolean(template),
+        jdCharacters: jdText.length,
+      },
+    } : undefined);
     if (!result) return fallback;
     const rewriteRecords = (kind: 'experience' | 'projects') => {
       const rows = Array.isArray(result[kind]) ? result[kind] : [];

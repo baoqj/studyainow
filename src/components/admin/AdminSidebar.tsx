@@ -1,5 +1,6 @@
 import {
   BookOpenCheck,
+  BarChart3,
   BriefcaseBusiness,
   ClipboardList,
   DatabaseZap,
@@ -19,6 +20,7 @@ import { BrandWordmark } from '../brand/BrandWordmark';
 const administratorItems = [
   { label: '概览', icon: LayoutDashboard, path: '/admin/overview' },
   { label: '用户管理', icon: UsersRound, path: '/admin/users' },
+  { label: '流量使用', icon: BarChart3, path: '/admin/token-usage' },
   { label: '组织管理', icon: Building2, path: '/admin/organizations' },
   { label: '自有课程', icon: BookOpenCheck, path: '/admin/courses' },
   { label: '用户课程', icon: UserRoundCog, path: '/admin/community-courses' },

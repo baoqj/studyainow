@@ -44,7 +44,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const file = new File([await object.arrayBuffer()], source.filename, { type: source.mime_type || 'application/octet-stream' });
     const ext = validateUpload(file);
     const extractedText = await extractFileText(file, ext);
-    const extracted = await extractCareerFactsFromUpload(env, file, ext, extractedText);
+    const extracted = await extractCareerFactsFromUpload(env, file, ext, extractedText, {
+      userId: user.id,
+      feature: 'resume_extract',
+      operation: 'chat_completion',
+      itemType: 'resume_source',
+      itemId: sourceId,
+      itemLabel: source.filename,
+      route: `/me/resume/${resumeId}`,
+      metadata: { resumeId, reparse: true },
+    });
     const existing = normaliseCareerProfile(parseJson(document.profile_json));
     const profile = extracted.status === 'failed' ? existing : mergeCareerProfile(existing, extracted.facts);
 

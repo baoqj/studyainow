@@ -8,6 +8,7 @@ const titles: Array<[RegExp, string]> = [
   [/^\/admin\/organizations/, '组织管理'],
   [/^\/admin\/overview/, '概览'],
   [/^\/admin\/users/, '用户管理'],
+  [/^\/admin\/token-usage/, '流量使用'],
   [/^\/admin\/courses/, '自有课程'],
   [/^\/admin\/community-courses/, '用户课程'],
   [/^\/admin\/interviews/, '面试题集'],

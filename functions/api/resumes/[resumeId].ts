@@ -202,8 +202,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params, 
     const referenceSkills = [...new Set(jobs.flatMap((job) => job.skills))].slice(0, 80);
     const companyName = primaryJob.companyName;
     const targetRole = primaryJob.title || template?.targetRole || profile.personal.targetRole;
-    const generated = await generateResumeWithDeepSeek(env, profile, template, jdText, companyName, targetRole, outputLocale, referenceSkills);
     const id = crypto.randomUUID();
+    const generated = await generateResumeWithDeepSeek(env, profile, template, jdText, companyName, targetRole, outputLocale, referenceSkills, {
+      userId: user.id,
+      feature: 'resume_generate',
+      operation: 'chat_completion',
+      itemType: 'resume_version',
+      itemId: id,
+      itemLabel: targetRole,
+      route: `/me/resume/${resumeId}`,
+      metadata: {
+        resumeId,
+        jobSlugs: jobs.map((job) => job.slug).slice(0, 5),
+        primaryJobSlug: primaryJob.slug,
+        companyName,
+      },
+    });
     await env.DB.batch([
       env.DB.prepare(
         `INSERT INTO resume_versions (id, user_id, resume_id, job_id, job_slug, job_title, company_name, document_json, match_json)

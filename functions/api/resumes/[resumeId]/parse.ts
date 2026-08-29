@@ -33,11 +33,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, params }
     const candidate = form.get('file');
     if (!(candidate instanceof File)) throw new ApiError(400, 'A resume file is required');
     const ext = validateUpload(candidate);
+    const sourceId = crypto.randomUUID();
     const extractedText = await extractFileText(candidate, ext);
-    const extracted = await extractCareerFactsFromUpload(env, candidate, ext, extractedText);
+    const extracted = await extractCareerFactsFromUpload(env, candidate, ext, extractedText, {
+      userId: user.id,
+      feature: 'resume_extract',
+      operation: 'chat_completion',
+      itemType: 'resume_source',
+      itemId: sourceId,
+      itemLabel: candidate.name,
+      route: `/me/resume/${resumeId}`,
+      metadata: { resumeId },
+    });
     const existing = normaliseCareerProfile(parseJson(document.profile_json));
     const profile = extracted.status === 'failed' ? existing : mergeCareerProfile(existing, extracted.facts);
-    const sourceId = crypto.randomUUID();
     const r2Key = `resumes/raw/${user.id}/${sourceId}/${safeFilename(candidate.name)}`;
     await env.COURSE_STORAGE.put(r2Key, await candidate.arrayBuffer(), {
       httpMetadata: { contentType: candidate.type || 'application/octet-stream' },

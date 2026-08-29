@@ -45,6 +45,7 @@ const AdminOverview = lazy(() => import('./pages/admin/AdminOverview').then((mod
 const AdminEntry = lazy(() => import('./pages/admin/AdminEntry').then((module) => ({ default: module.AdminEntry })));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers').then((module) => ({ default: module.AdminUsers })));
 const AdminUserDetail = lazy(() => import('./pages/admin/AdminUserDetail').then((module) => ({ default: module.AdminUserDetail })));
+const AdminTokenUsage = lazy(() => import('./pages/admin/AdminTokenUsage').then((module) => ({ default: module.AdminTokenUsage })));
 const AdminOrganizations = lazy(() => import('./pages/admin/AdminOrganizations').then((module) => ({ default: module.AdminOrganizations })));
 const AdminOrganizationDetail = lazy(() => import('./pages/admin/AdminOrganizationDetail').then((module) => ({ default: module.AdminOrganizationDetail })));
 const AdminSystemCourses = lazy(() => import('./pages/admin/AdminSystemCourses').then((module) => ({ default: module.AdminSystemCourses })));
@@ -120,6 +121,8 @@ function AppRoutes() {
           <Route path="overview" element={<AdminOverview />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="users/:userId" element={<AdminUserDetail />} />
+          <Route path="token-usage" element={<AdminTokenUsage />} />
+          <Route path="token-usage/users/:userId" element={<AdminTokenUsage />} />
           <Route path="organizations" element={<AdminOrganizations />} />
           <Route path="organizations/:organizationId" element={<AdminOrganizationDetail />} />
           <Route path="my-organization" element={<AdminOrganizationDetail my />} />

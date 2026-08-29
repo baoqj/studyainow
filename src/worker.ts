@@ -72,6 +72,8 @@ import { onRequestGet as listOrganizationAudit } from '../functions/api/admin/or
 import { onRequestGet as listOrganizationContent } from '../functions/api/admin/organizations/[organizationId]/content';
 import { onRequestPost as sendAdminEmailTest } from '../functions/api/admin/email/test';
 import { onRequestPost as localizeCurriculum } from '../functions/api/admin/curriculum/localize';
+import { onRequestGet as getAdminTokenUsage } from '../functions/api/admin/token-usage/index';
+import { onRequestGet as getAdminUserTokenUsage } from '../functions/api/admin/token-usage/users/[userId]';
 import { inspectDueJobUrls, reindexCurrentJobSkillEvidence, runDueSourceSync, runInitialSourceSync, runPendingJobPresentationRefresh } from '../functions/_lib/jobs';
 import { enqueuePublishedCourseKnowledge, runKnowledgeGraphRefresh } from '../functions/_lib/knowledgeGraph';
 import { runPendingJobVectorIndex } from '../functions/_lib/jobVectors';
@@ -371,6 +373,7 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
     return methodNotAllowed('GET, POST');
   }
   if (pathname === '/api/admin/overview') return method === 'GET' ? run(getAdminOverview, request, env, ctx) : methodNotAllowed('GET');
+  if (pathname === '/api/admin/token-usage') return method === 'GET' ? run(getAdminTokenUsage, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/email/test') return method === 'POST' ? run(sendAdminEmailTest, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/admin/curriculum/localize') return method === 'POST' ? run(localizeCurriculum, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/admin/users') return method === 'GET' ? run(listAdminUsers, request, env, ctx) : methodNotAllowed('GET');
@@ -476,6 +479,13 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
   if (adminUserActivityMatch) {
     return method === 'GET'
       ? run(getAdminUserActivity, request, env, ctx, { userId: decodeURIComponent(adminUserActivityMatch[1]) })
+      : methodNotAllowed('GET');
+  }
+
+  const adminTokenUsageUserMatch = pathname.match(/^\/api\/admin\/token-usage\/users\/([^/]+)$/);
+  if (adminTokenUsageUserMatch) {
+    return method === 'GET'
+      ? run(getAdminUserTokenUsage, request, env, ctx, { userId: decodeURIComponent(adminTokenUsageUserMatch[1]) })
       : methodNotAllowed('GET');
   }
 
