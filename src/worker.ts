@@ -71,6 +71,7 @@ import { onRequestGet as listOrganizationMessages, onRequestPost as sendOrganiza
 import { onRequestGet as listOrganizationAudit } from '../functions/api/admin/organizations/[organizationId]/audit';
 import { onRequestGet as listOrganizationContent } from '../functions/api/admin/organizations/[organizationId]/content';
 import { onRequestPost as sendAdminEmailTest } from '../functions/api/admin/email/test';
+import { onRequestPost as localizeCurriculum } from '../functions/api/admin/curriculum/localize';
 import { inspectDueJobUrls, reindexCurrentJobSkillEvidence, runDueSourceSync, runInitialSourceSync, runPendingJobPresentationRefresh } from '../functions/_lib/jobs';
 import { enqueuePublishedCourseKnowledge, runKnowledgeGraphRefresh } from '../functions/_lib/knowledgeGraph';
 import { runPendingJobVectorIndex } from '../functions/_lib/jobVectors';
@@ -371,6 +372,7 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
   }
   if (pathname === '/api/admin/overview') return method === 'GET' ? run(getAdminOverview, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/email/test') return method === 'POST' ? run(sendAdminEmailTest, request, env, ctx) : methodNotAllowed('POST');
+  if (pathname === '/api/admin/curriculum/localize') return method === 'POST' ? run(localizeCurriculum, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/admin/users') return method === 'GET' ? run(listAdminUsers, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/organizations') {
     if (method === 'GET') return run(listOrganizations, request, env, ctx);

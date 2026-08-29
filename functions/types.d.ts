@@ -47,6 +47,10 @@ interface Env {
   KIMI_API_KEY?: string;
   LLM_DEEPSEEK_API?: string;
   LLM_MEGANOVA_API?: string;
+  /** Private build endpoint credential for Course/15 locale rewrites. */
+  CURRICULUM_LOCALIZATION_TOKEN?: string;
+  CURRICULUM_DEEPSEEK_MODEL?: string;
+  CURRICULUM_MEGANOVA_MODEL?: string;
   SKILL_GRAPH_DEEPSEEK_MODEL?: string;
   SKILL_GRAPH_MEGANOVA_MODEL?: string;
   // Resume extraction uses DeepSeek first. When fewer than ten reviewable
