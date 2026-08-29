@@ -1,9 +1,9 @@
-import { requireAdmin } from '../../../_lib/auth';
 import { errorResponse, json } from '../../../_lib/http';
+import { requireAdminOrLeader } from '../../../_lib/organizations';
 
 export const onRequestGet: PagesFunction<Env, 'jobId'> = async ({ env, request, params }) => {
   try {
-    await requireAdmin(env.DB, request);
+    const actor = await requireAdminOrLeader(env.DB, request);
     const jobId = typeof params.jobId === 'string' ? params.jobId : null;
     if (!jobId) return json({ error: 'Job not found' }, { status: 404 });
     const job = await env.DB.prepare(
@@ -13,7 +13,8 @@ export const onRequestGet: PagesFunction<Env, 'jobId'> = async ({ env, request, 
               job_postings.display_policy, job_postings.current_version_id,
               companies.name AS company_name, job_sources.source_type, job_sources.official_career_url
        FROM job_postings JOIN companies ON companies.id = job_postings.company_id
-       JOIN job_sources ON job_sources.id = job_postings.source_id WHERE job_postings.id = ?`,
+       JOIN job_sources ON job_sources.id = job_postings.source_id WHERE job_postings.id = ?
+       ${actor.isAdmin ? '' : "AND job_postings.status = 'published'"}`,
     ).bind(jobId).first();
     if (!job) return json({ error: 'Job not found' }, { status: 404 });
     const [sections, evidence, history] = await Promise.all([

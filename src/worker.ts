@@ -7,6 +7,7 @@ import { onRequestPost as forgotPassword } from '../functions/api/auth/password/
 import { onRequestPost as resetPassword } from '../functions/api/auth/password/reset';
 import { onRequestGet as startGoogleAuth } from '../functions/api/auth/google/start';
 import { onRequestGet as completeGoogleAuth } from '../functions/api/auth/google/callback';
+import { onRequestPost as validateOrganizationInvite } from '../functions/api/auth/invites/validate';
 import { onRequestGet as listCourses } from '../functions/api/courses/index';
 import { onRequestGet as getCourseProgress } from '../functions/api/courses/[courseId]/progress';
 import { onRequestGet as getCourseAccess } from '../functions/api/courses/[courseId]/access';
@@ -21,6 +22,7 @@ import { onRequestPost as receiveDonationWebhook } from '../functions/api/donati
 import { onRequestPost as receiveResendWebhook } from '../functions/api/webhooks/resend';
 import { onRequestPost as sendContactMessage } from '../functions/api/contact';
 import { onRequestPost as recordCourseEngagement } from '../functions/api/analytics/course-engagement';
+import { onRequestPost as recordPageView } from '../functions/api/activity/page-view';
 import { onRequestGet as listJobs } from '../functions/api/jobs/index';
 import { onRequestGet as getJob } from '../functions/api/jobs/[slug]';
 import { onRequestGet as listJobBookmarks } from '../functions/api/jobs/bookmarks';
@@ -53,14 +55,30 @@ import { onRequestPost as recordResumeExport } from '../functions/api/resumes/ex
 import { onRequestGet as getAdminOverview } from '../functions/api/admin/overview';
 import { onRequestGet as listAdminUsers } from '../functions/api/admin/users/index';
 import { onRequestGet as getAdminUser, onRequestPatch as updateAdminUser } from '../functions/api/admin/users/[userId]';
+import { onRequestGet as getAdminUserActivity } from '../functions/api/admin/users/[userId]/activity';
+import { onRequestGet as getAdminInterviews } from '../functions/api/admin/interviews/index';
 import { onRequestGet as getSystemCourseAnalytics } from '../functions/api/admin/courses/system';
 import { onRequestGet as getCommunityCourseAnalytics } from '../functions/api/admin/courses/community';
 import { onRequestPatch as updateCommunityCourse } from '../functions/api/admin/courses/community/[courseId]';
+import { onRequestGet as listOrganizations, onRequestPost as createOrganization } from '../functions/api/admin/organizations/index';
+import { onRequestGet as getOrganization, onRequestPatch as updateOrganization } from '../functions/api/admin/organizations/[organizationId]';
+import { onRequestGet as getMyOrganization } from '../functions/api/admin/my-organization';
+import { onRequestGet as listOrganizationMembers, onRequestPost as addOrganizationMember, onRequestDelete as removeOrganizationMember } from '../functions/api/admin/organizations/[organizationId]/members';
+import { onRequestPut as setOrganizationLeader } from '../functions/api/admin/organizations/[organizationId]/leader';
+import { onRequestGet as listOrganizationInvites, onRequestPost as createOrganizationInvite } from '../functions/api/admin/organizations/[organizationId]/invites';
+import { onRequestPatch as updateOrganizationInvite } from '../functions/api/admin/organizations/[organizationId]/invites/[inviteId]';
+import { onRequestGet as listOrganizationMessages, onRequestPost as sendOrganizationMessage } from '../functions/api/admin/organizations/[organizationId]/messages';
+import { onRequestGet as listOrganizationAudit } from '../functions/api/admin/organizations/[organizationId]/audit';
+import { onRequestGet as listOrganizationContent } from '../functions/api/admin/organizations/[organizationId]/content';
 import { onRequestPost as sendAdminEmailTest } from '../functions/api/admin/email/test';
-import { inspectDueJobUrls, reindexCurrentJobSkillEvidence, runDueSourceSync } from '../functions/_lib/jobs';
+import { onRequestPost as localizeCurriculum } from '../functions/api/admin/curriculum/localize';
+import { inspectDueJobUrls, reindexCurrentJobSkillEvidence, runDueSourceSync, runInitialSourceSync, runPendingJobPresentationRefresh } from '../functions/_lib/jobs';
 import { enqueuePublishedCourseKnowledge, runKnowledgeGraphRefresh } from '../functions/_lib/knowledgeGraph';
+import { runPendingJobVectorIndex } from '../functions/_lib/jobVectors';
 import { runEmailLifecycleCampaigns } from '../functions/_lib/emailCampaigns';
 import { resendWebhookPath } from '../functions/_lib/email';
+import { getRouteBootstrapHtml, getRouteMetadata, type RouteMetadata } from './lib/routeMetadata';
+import { canonicalPublicPathname } from './lib/localeRoutes';
 
 type Params = Record<string, string | undefined>;
 
@@ -91,22 +109,120 @@ function documentContentSecurityPolicy(nonce: string) {
   ].join('; ');
 }
 
+function escapeHtmlAttribute(value: string) {
+  return value.replace(/[&<>'"]/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+  })[character] ?? character);
+}
+
+function routeSeoHead(metadata: RouteMetadata, nonce: string) {
+  const alternates = metadata.alternates.map((alternate) => (
+    `<link rel="alternate" hreflang="${escapeHtmlAttribute(alternate.hreflang)}" href="${escapeHtmlAttribute(alternate.href)}" data-studyainow-alternate="true">`
+  )).join('');
+  const structuredData = JSON.stringify(metadata.structuredData).replace(/</g, '\\u003c');
+  return `${alternates}<script id="studyainow-route-structured-data" type="application/ld+json" nonce="${nonce}">${structuredData}</script>`;
+}
+
 async function assetResponse(request: Request, env: Env) {
+  const requestUrl = new URL(request.url);
+  const canonicalPathname = canonicalPublicPathname(requestUrl.pathname);
+  if (canonicalPathname && (request.method === 'GET' || request.method === 'HEAD')) {
+    const redirectUrl = new URL(request.url);
+    redirectUrl.pathname = canonicalPathname;
+    return new Response(null, {
+      status: 301,
+      headers: {
+        location: redirectUrl.toString(),
+        'cache-control': 'public, max-age=3600',
+      },
+    });
+  }
+
   const response = await env.ASSETS.fetch(request);
   if (!response.headers.get('content-type')?.toLowerCase().includes('text/html')) return response;
 
+  const pathname = requestUrl.pathname;
+  const routeMetadata = getRouteMetadata(pathname);
+  const bootstrapHtml = getRouteBootstrapHtml(pathname);
   const nonce = createCspNonce();
   const headers = new Headers(response.headers);
   headers.set('content-security-policy', documentContentSecurityPolicy(nonce));
+  headers.set('cache-control', 'public, max-age=0, must-revalidate');
+  headers.set('x-robots-tag', routeMetadata.robots);
   const htmlResponse = new Response(request.method === 'HEAD' ? null : response.body, {
-    status: response.status,
-    statusText: response.statusText,
+    status: routeMetadata.isKnownRoute ? response.status : 404,
+    statusText: routeMetadata.isKnownRoute ? response.statusText : 'Not Found',
     headers,
   });
 
   if (request.method === 'HEAD') return htmlResponse;
 
   return new HTMLRewriter()
+    .on('html', {
+      element(element) {
+        element.setAttribute('lang', routeMetadata.language);
+      },
+    })
+    .on('head', {
+      element(element) {
+        element.append(routeSeoHead(routeMetadata, nonce), { html: true });
+      },
+    })
+    .on('title', {
+      element(element) {
+        element.setInnerContent(routeMetadata.title);
+      },
+    })
+    .on('meta[name="description"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.description);
+      },
+    })
+    .on('meta[name="robots"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.robots);
+      },
+    })
+    .on('link[rel="canonical"]', {
+      element(element) {
+        element.setAttribute('href', routeMetadata.canonical);
+      },
+    })
+    .on('meta[property="og:title"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.title);
+      },
+    })
+    .on('meta[property="og:description"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.description);
+      },
+    })
+    .on('meta[property="og:url"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.canonical);
+      },
+    })
+    .on('meta[property="og:locale"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.openGraphLocale);
+      },
+    })
+    .on('meta[name="twitter:title"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.title);
+      },
+    })
+    .on('meta[name="twitter:description"]', {
+      element(element) {
+        element.setAttribute('content', routeMetadata.description);
+      },
+    })
+    .on('div#root', {
+      element(element) {
+        if (bootstrapHtml) element.setInnerContent(bootstrapHtml, { html: true });
+      },
+    })
     .on('script', {
       element(element) {
         element.setAttribute('nonce', nonce);
@@ -168,6 +284,7 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
   if (pathname === '/api/auth/login') return method === 'POST' ? run(login, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/auth/logout') return method === 'POST' ? run(logout, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/auth/register') return method === 'POST' ? run(register, request, env, ctx) : methodNotAllowed('POST');
+  if (pathname === '/api/auth/invites/validate') return method === 'POST' ? run(validateOrganizationInvite, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/auth/verify') return method === 'GET' ? run(verifyEmail, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/auth/password/forgot') return method === 'POST' ? run(forgotPassword, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/auth/password/reset') return method === 'POST' ? run(resetPassword, request, env, ctx) : methodNotAllowed('POST');
@@ -181,6 +298,7 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
   if (pathname === '/api/profile/password') return method === 'PUT' ? run(updateProfilePassword, request, env, ctx) : methodNotAllowed('PUT');
   if (pathname === '/api/profile/avatar') return method === 'PUT' ? run(updateProfileAvatar, request, env, ctx) : methodNotAllowed('PUT');
   if (pathname === '/api/account/overview') return method === 'GET' ? run(getAccountOverview, request, env, ctx) : methodNotAllowed('GET');
+  if (pathname === '/api/activity/page-view') return method === 'POST' ? run(recordPageView, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/courses') return method === 'GET' ? run(listCourses, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/progress') return method === 'PUT' ? run(saveProgress, request, env, ctx) : methodNotAllowed('PUT');
   if (pathname === '/api/resumes') {
@@ -254,7 +372,15 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
   }
   if (pathname === '/api/admin/overview') return method === 'GET' ? run(getAdminOverview, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/email/test') return method === 'POST' ? run(sendAdminEmailTest, request, env, ctx) : methodNotAllowed('POST');
+  if (pathname === '/api/admin/curriculum/localize') return method === 'POST' ? run(localizeCurriculum, request, env, ctx) : methodNotAllowed('POST');
   if (pathname === '/api/admin/users') return method === 'GET' ? run(listAdminUsers, request, env, ctx) : methodNotAllowed('GET');
+  if (pathname === '/api/admin/organizations') {
+    if (method === 'GET') return run(listOrganizations, request, env, ctx);
+    if (method === 'POST') return run(createOrganization, request, env, ctx);
+    return methodNotAllowed('GET, POST');
+  }
+  if (pathname === '/api/admin/my-organization') return method === 'GET' ? run(getMyOrganization, request, env, ctx) : methodNotAllowed('GET');
+  if (pathname === '/api/admin/interviews') return method === 'GET' ? run(getAdminInterviews, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/courses/system') return method === 'GET' ? run(getSystemCourseAnalytics, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/courses/community') return method === 'GET' ? run(getCommunityCourseAnalytics, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/jobs') return method === 'GET' ? run(listAdminJobs, request, env, ctx) : methodNotAllowed('GET');
@@ -346,6 +472,52 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
       : methodNotAllowed('PATCH');
   }
 
+  const adminUserActivityMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)\/activity$/);
+  if (adminUserActivityMatch) {
+    return method === 'GET'
+      ? run(getAdminUserActivity, request, env, ctx, { userId: decodeURIComponent(adminUserActivityMatch[1]) })
+      : methodNotAllowed('GET');
+  }
+
+  const organizationInviteMatch = pathname.match(/^\/api\/admin\/organizations\/([^/]+)\/invites\/([^/]+)$/);
+  if (organizationInviteMatch) {
+    return method === 'PATCH'
+      ? run(updateOrganizationInvite, request, env, ctx, { organizationId: decodeURIComponent(organizationInviteMatch[1]), inviteId: decodeURIComponent(organizationInviteMatch[2]) })
+      : methodNotAllowed('PATCH');
+  }
+
+  const organizationChildMatch = pathname.match(/^\/api\/admin\/organizations\/([^/]+)\/(members|leader|invites|messages|audit|content)$/);
+  if (organizationChildMatch) {
+    const params = { organizationId: decodeURIComponent(organizationChildMatch[1]) };
+    switch (organizationChildMatch[2]) {
+      case 'members':
+        if (method === 'GET') return run(listOrganizationMembers, request, env, ctx, params);
+        if (method === 'POST') return run(addOrganizationMember, request, env, ctx, params);
+        if (method === 'DELETE') return run(removeOrganizationMember, request, env, ctx, params);
+        return methodNotAllowed('GET, POST, DELETE');
+      case 'leader':
+        return method === 'PUT' ? run(setOrganizationLeader, request, env, ctx, params) : methodNotAllowed('PUT');
+      case 'invites':
+        if (method === 'GET') return run(listOrganizationInvites, request, env, ctx, params);
+        if (method === 'POST') return run(createOrganizationInvite, request, env, ctx, params);
+        return methodNotAllowed('GET, POST');
+      case 'messages':
+        if (method === 'GET') return run(listOrganizationMessages, request, env, ctx, params);
+        if (method === 'POST') return run(sendOrganizationMessage, request, env, ctx, params);
+        return methodNotAllowed('GET, POST');
+      case 'audit': return method === 'GET' ? run(listOrganizationAudit, request, env, ctx, params) : methodNotAllowed('GET');
+      case 'content': return method === 'GET' ? run(listOrganizationContent, request, env, ctx, params) : methodNotAllowed('GET');
+    }
+  }
+
+  const organizationMatch = pathname.match(/^\/api\/admin\/organizations\/([^/]+)$/);
+  if (organizationMatch) {
+    const params = { organizationId: decodeURIComponent(organizationMatch[1]) };
+    if (method === 'GET') return run(getOrganization, request, env, ctx, params);
+    if (method === 'PATCH') return run(updateOrganization, request, env, ctx, params);
+    return methodNotAllowed('GET, PATCH');
+  }
+
   const adminUserMatch = pathname.match(/^\/api\/admin\/users\/([^/]+)$/);
   if (adminUserMatch) {
     const params = { userId: decodeURIComponent(adminUserMatch[1]) };
@@ -420,6 +592,11 @@ export default {
         return;
       }
       if (controller.cron === '*/2 * * * *') {
+        // A newly approved official source receives one bootstrap fetch on the
+        // existing maintenance trigger, then rejoins the unchanged twice-daily
+        // source cadence. This makes a deployment immediately useful without
+        // increasing steady-state crawl frequency.
+        const initialSourceSync = await runInitialSourceSync(env);
         // The first URL-inspection pass is intentionally prioritized after a
         // lifecycle-policy migration. It validates every stored original URL
         // in bounded batches without using a changing source catalogue as
@@ -429,10 +606,14 @@ export default {
           console.log('Scheduled original JD URL inspection advanced', {
             cron: controller.cron,
             scheduledTime: new Date(controller.scheduledTime).toISOString(),
+            initialSourceSync,
             urlInspection,
           });
           return;
         }
+        // Apply public-display policy and renderer changes without recrawling
+        // or replacing the private semantic/vector inputs.
+        const presentation = await runPendingJobPresentationRefresh(env, 32);
         // Rebuild approved dictionary evidence first, then prioritize the
         // current JD queue so the DeepSeek pass can add reviewed candidates
         // and related concepts without waiting behind course discovery.
@@ -449,13 +630,17 @@ export default {
           : Number(courseBacklog?.value ?? 0) > 0 ? 'course_chapter'
             : undefined;
         const knowledgeGraph = await runKnowledgeGraphRefresh(env, 16, sourceType);
+        const jobVectors = await runPendingJobVectorIndex(env, 24);
         console.log('Scheduled knowledge-graph backfill finished', {
           cron: controller.cron,
           scheduledTime: new Date(controller.scheduledTime).toISOString(),
+          initialSourceSync,
           urlInspection,
+          presentation,
           reindex,
           sourceType,
           knowledgeGraph,
+          jobVectors,
         });
         return;
       }
@@ -473,6 +658,7 @@ export default {
         "SELECT COUNT(*) AS value FROM knowledge_refresh_queue WHERE source_type = 'job_version' AND status IN ('pending', 'error', 'running')",
       ).first<{ value: number }>();
       const knowledgeGraph = await runKnowledgeGraphRefresh(env, 16, Number(jobBacklog?.value ?? 0) > 0 ? 'job_version' : undefined);
+      const jobVectors = await runPendingJobVectorIndex(env, 24);
       console.log('Scheduled AI job-source synchronization finished', {
         cron: controller.cron,
         scheduledTime: new Date(controller.scheduledTime).toISOString(),
@@ -481,6 +667,7 @@ export default {
         courseQueue: courseDiscovery.status === 'fulfilled' ? courseDiscovery.value : { error: courseDiscovery.reason instanceof Error ? courseDiscovery.reason.message : 'Unknown error' },
         evidenceReindex: reindex.status === 'fulfilled' ? reindex.value : { error: reindex.reason instanceof Error ? reindex.reason.message : 'Unknown error' },
         knowledgeGraph,
+        jobVectors,
       });
     } catch (error) {
       console.error('Scheduled AI job-source synchronization failed', {

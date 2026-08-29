@@ -3,12 +3,14 @@ import { Link, useParams } from 'react-router-dom';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CourseFooter } from '../components/course/CourseFooter';
 import { CourseNavbar } from '../components/course/CourseNavbar';
-import { getChapterPath, getCourse, getCourseStartPath, resolveCourseCover } from '../data/courseContent';
+import { getChapterPath, getCourse, getCourseStartPath, loadCourse, resolveCourseCover } from '../data/courseContent';
 import { useTranslation } from 'react-i18next';
 import type { AppLocale } from '../data/courseContent';
 import { fetchCourseAccess, type CourseAccess } from '../lib/account';
 import { trackCourseClick } from '../lib/courseAnalytics';
 import { useTheme } from '../lib/theme';
+import { localizedPublicPath } from '../lib/localeRoutes';
+import { NotFound } from './NotFound';
 
 const skillToggleCopy: Record<AppLocale, { expand: string; collapse: string; count: string }> = {
   'zh-CN': { expand: '展开全部技能', collapse: '收起技能', count: '个技能' },
@@ -22,21 +24,35 @@ export function CourseStart() {
   const { courseId } = useParams();
   const { t, i18n } = useTranslation();
   const isDark = useTheme();
-  const course = getCourse(courseId, (i18n.resolvedLanguage ?? i18n.language) as AppLocale);
-  const startPath = getCourseStartPath(course);
+  const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
+  const [matchedCourse, setMatchedCourse] = useState<ReturnType<typeof getCourse> | undefined>();
+  const [courseLoading, setCourseLoading] = useState(true);
+  useEffect(() => {
+    let active = true;
+    setCourseLoading(true);
+    setMatchedCourse(undefined);
+    void loadCourse(courseId ?? '', locale).then((course) => {
+      if (!active) return;
+      setMatchedCourse(course);
+      setCourseLoading(false);
+    });
+    return () => { active = false; };
+  }, [courseId, locale]);
+  const course = matchedCourse ?? getCourse(undefined, locale);
+  const startPath = getCourseStartPath(course, locale);
   const coverUrl = resolveCourseCover(course.id, isDark, course.imageUrl);
   const [access, setAccess] = useState<CourseAccess | null>(null);
   const [skillsExpanded, setSkillsExpanded] = useState(false);
   const [skillsExceedThreeRows, setSkillsExceedThreeRows] = useState(false);
   const skillsRef = useRef<HTMLDivElement>(null);
-  const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const toggleCopy = skillToggleCopy[locale] ?? skillToggleCopy.en;
-  useEffect(() => { trackCourseClick(course.id); }, [course.id]);
+  useEffect(() => { if (matchedCourse) trackCourseClick(course.id); }, [course.id, matchedCourse]);
   useEffect(() => {
+    if (!matchedCourse) return;
     let active = true;
     fetchCourseAccess(course.id).then((result) => active && setAccess(result)).catch(() => active && setAccess({ authenticated: false, courseManaged: true, chapters: [] }));
     return () => { active = false; };
-  }, [course.id]);
+  }, [course.id, matchedCourse]);
 
   useEffect(() => {
     if (!access?.authenticated) return;
@@ -75,6 +91,9 @@ export function CourseStart() {
 
   useEffect(() => { setSkillsExpanded(false); }, [course.id]);
 
+  if (courseLoading) return <div data-testid="course-loading" className="min-h-[38vh] px-5 py-16 text-center text-on-surface-variant">{t('common.loading')}</div>;
+  if (!matchedCourse) return <NotFound />;
+
   return (
     <div className="min-h-screen bg-background text-on-surface font-body-md">
       <CourseNavbar course={course} />
@@ -83,12 +102,12 @@ export function CourseStart() {
         <section className="border-b border-outline-variant bg-surface-container-low">
           <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:py-16">
             <div>
-              <nav aria-label={t('course.catalog')} className="mb-6 flex items-center gap-2 text-label-sm font-label-sm text-outline">
-                <Link to="/" className="rounded px-1 py-0.5 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
+              <nav aria-label="Breadcrumb" className="mb-6 flex items-center gap-2 text-label-sm font-label-sm text-outline">
+                <Link to={localizedPublicPath('/', locale)} className="rounded px-1 py-0.5 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30">
                   {t('course.catalog')}
                 </Link>
                 <ArrowRight className="h-4 w-4" />
-                <span className="rounded px-1 py-0.5 text-on-surface">{course.topic}</span>
+                <span className="rounded px-1 py-0.5 text-on-surface">{course.title}</span>
               </nav>
 
               <div className="mb-4 flex flex-wrap gap-2">
@@ -215,7 +234,7 @@ export function CourseStart() {
               return (
               <Link
                 key={chapter.routeId}
-                to={getChapterPath(course.id, chapter)}
+                to={getChapterPath(course.id, chapter, locale)}
                 className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 transition-colors hover:border-primary hover:bg-surface-container-low"
               >
                 <div className="mb-2 flex items-center gap-2 text-[12px] font-label-sm text-primary">

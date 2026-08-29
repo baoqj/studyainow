@@ -30,8 +30,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const [profile, badges, points] = await Promise.all([
       env.DB
         .prepare(
-          `SELECT id, email, display_name, username, avatar_url, bio, preferred_locale, notification_email_enabled, marketing_email_enabled, email_verified_at, created_at
-           FROM users WHERE id = ?`,
+          `SELECT users.id, users.email, users.display_name, users.username, users.avatar_url, users.bio,
+                  users.preferred_locale, users.notification_email_enabled, users.marketing_email_enabled,
+                  users.email_verified_at, users.created_at, users.organization_role, users.organization_joined_at,
+                  organizations.name AS organization_name, organizations.public_id AS organization_public_id
+           FROM users LEFT JOIN organizations ON organizations.id = users.organization_id WHERE users.id = ?`,
         )
         .bind(user.id)
         .first(),
@@ -91,7 +94,11 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
       .run();
 
     const profile = await env.DB
-      .prepare('SELECT id, email, display_name, username, avatar_url, bio, preferred_locale, notification_email_enabled, marketing_email_enabled, email_verified_at FROM users WHERE id = ?')
+      .prepare(`SELECT users.id, users.email, users.display_name, users.username, users.avatar_url, users.bio,
+                       users.preferred_locale, users.notification_email_enabled, users.marketing_email_enabled,
+                       users.email_verified_at, users.organization_role, users.organization_joined_at,
+                       organizations.name AS organization_name, organizations.public_id AS organization_public_id
+                FROM users LEFT JOIN organizations ON organizations.id = users.organization_id WHERE users.id = ?`)
       .bind(user.id)
       .first();
     return json({ profile });

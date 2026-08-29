@@ -1,13 +1,15 @@
 import { ApiError } from './http';
 import { sha256Base64Url } from './crypto';
 import { normalizeJobLocations, type JobGeoLocation } from './jobGeo';
-import { jobRichTextFromParts, jobRichTextFromValue, jobRichTextToPlainText, type JobRichTextDocument } from './jobRichText';
+import { jobRichTextFromParts, jobRichTextFromValue, jobRichTextToPlainText, parseJobRichText, type JobRichTextDocument } from './jobRichText';
 import { enqueueKnowledgeRefresh } from './knowledgeGraph';
+import { enqueueJobVectorIndex } from './jobVectors';
 
 export const ATS_SOURCE_TYPES = ['greenhouse', 'lever', 'ashby'] as const;
 export type AtsSourceType = (typeof ATS_SOURCE_TYPES)[number];
 export type SourceType = AtsSourceType | 'json_ld' | 'manual';
 export type DisplayPolicy = 'metadata_only' | 'excerpt' | 'full_text_authorized';
+export const JOB_PRESENTATION_VERSION = 1;
 
 // Official ATS boards with complete source-language JDs can exceed 5 MB even
 // for a few hundred active roles. Keep a finite ceiling to avoid unbounded
@@ -51,6 +53,37 @@ const STRUCTURED_BOARD_ENDPOINTS: Record<string, string> = {
   // The publicly rendered official board embeds a server-side structured list.
   // We consume only that list, never its authenticated internal API.
   'baidu-social': 'https://talent.baidu.com/jobs/social-list',
+  // Equifax's branded Happydance site links every application to this
+  // first-party Workday tenant. The CXS endpoint is the stable structured
+  // source behind those employer-owned postings and avoids the branded site's
+  // Cloudflare browser challenge.
+  'equifax-workday': 'https://equifax.wd5.myworkdayjobs.com/wday/cxs/equifax/External/jobs',
+};
+
+const WORKDAY_STRUCTURED_BOARDS: Record<string, {
+  origin: string;
+  tenant: string;
+  site: string;
+  language: string;
+  searchText: string;
+  appliedFacets: Record<string, string[]>;
+}> = {
+  'equifax-workday': {
+    origin: 'https://equifax.wd5.myworkdayjobs.com',
+    tenant: 'equifax',
+    site: 'External',
+    language: 'en',
+    // Workday performs this search across the full posting, not only titles.
+    // The existing StudyAINow relevance gate remains the final admission rule.
+    searchText: 'AI',
+    appliedFacets: {
+      // Official Workday facet ids for Canada and the United States.
+      locationCountry: [
+        'a30a87ed25634629aa6c3958aa2b91ea',
+        'bc33aa3152ec42d4995f4791a106ed09',
+      ],
+    },
+  },
 };
 
 export interface JobSourceRecord {
@@ -78,10 +111,21 @@ interface NormalizedJob {
   sourceUrl: string;
   applyUrl: string | null;
   sourcePublishedAt: string | null;
+  sourceUpdatedAt: string | null;
   description: string;
   richContent: JobRichTextDocument;
   language: string;
   locations: JobGeoLocation[];
+  tags: NormalizedJobTag[];
+}
+
+type JobTagType = 'department' | 'team' | 'employment' | 'workplace' | 'role' | 'domain' | 'technology' | 'tool' | 'method' | 'knowledge' | 'skill' | 'source';
+
+interface NormalizedJobTag {
+  key: string;
+  label: string;
+  type: JobTagType;
+  language: string;
 }
 
 interface SkillAliasRow {
@@ -107,6 +151,7 @@ type JobUrlInspectionRow = {
   external_job_id: string | null;
   source_url: string;
   original_source_url: string | null;
+  apply_url: string | null;
   source_published_at: string | null;
   collected_at: string | null;
   status: string;
@@ -328,6 +373,35 @@ function dateIso(value: unknown) {
   return null;
 }
 
+function tagKey(value: string) {
+  return value
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}+#.]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 100);
+}
+
+function sourceTag(value: unknown, type: JobTagType, language = 'und'): NormalizedJobTag | null {
+  const label = asString(value).replace(/\s+/g, ' ').slice(0, 160);
+  const key = tagKey(label);
+  return label && key ? { key, label, type, language } : null;
+}
+
+function uniqueTags(values: Array<NormalizedJobTag | null>) {
+  const unique = new Map<string, NormalizedJobTag>();
+  for (const tag of values) {
+    if (tag) unique.set(`${tag.type}:${tag.key}`, tag);
+  }
+  return [...unique.values()].slice(0, 48);
+}
+
+function metadataTagValues(value: unknown) {
+  if (Array.isArray(value)) return value.map((item) => asString(item)).filter(Boolean);
+  const single = asString(value);
+  return single ? [single] : [];
+}
+
 function remoteType(value: string) {
   const text = value.toLowerCase();
   if (/\bhybrid\b/.test(text)) return 'hybrid' as const;
@@ -367,6 +441,10 @@ function normalizeGreenhouse(payload: any): NormalizedJob[] {
     const location = locationText(locations);
     const { richContent, description } = richDescription(job?.content);
     const externalJobId = String(job?.id ?? '');
+    const tags = uniqueTags([
+      ...(Array.isArray(job?.departments) ? job.departments.map((item: any) => sourceTag(item?.name, 'department')) : []),
+      ...(Array.isArray(job?.metadata) ? job.metadata.flatMap((item: any) => metadataTagValues(item?.value).map((value) => sourceTag(value, 'source'))) : []),
+    ]);
     return {
       externalJobId,
       canonicalKey: `greenhouse:${externalJobId || `${asString(job?.title)}:${asString(job?.absolute_url)}`}`,
@@ -376,14 +454,15 @@ function normalizeGreenhouse(payload: any): NormalizedJob[] {
       employmentType: null,
       sourceUrl: asString(job?.absolute_url),
       applyUrl: asString(job?.absolute_url) || null,
-      // Greenhouse exposes `updated_at`, not a true publication field. Do not
-      // relabel an update timestamp as a published date; initial collection is
-      // the prescribed fallback when no publication date is exposed.
-      sourcePublishedAt: null,
+      // Modern Greenhouse board payloads expose both fields. Keep the first
+      // publication and the latest employer update as distinct ISO dates.
+      sourcePublishedAt: dateIso(job?.first_published),
+      sourceUpdatedAt: dateIso(job?.updated_at),
       description,
       richContent,
       language: sourceLanguage(job?.language),
       locations,
+      tags,
     };
   });
 }
@@ -396,6 +475,12 @@ function normalizeLever(payload: any): NormalizedJob[] {
     const location = locationText(locations);
     const { richContent, description } = primaryRichDescription(job?.descriptionPlain, job?.description, Array.isArray(job?.lists) ? job.lists.map((item: any) => item?.content) : []);
     const externalJobId = asString(job?.id);
+    const tags = uniqueTags([
+      sourceTag(categories.department, 'department'),
+      sourceTag(categories.team, 'team'),
+      sourceTag(categories.commitment, 'employment'),
+      sourceTag(job?.workplaceType, 'workplace'),
+    ]);
     return {
       externalJobId,
       canonicalKey: `lever:${externalJobId || `${asString(job?.text)}:${asString(job?.hostedUrl)}`}`,
@@ -406,10 +491,12 @@ function normalizeLever(payload: any): NormalizedJob[] {
       sourceUrl: asString(job?.hostedUrl) || asString(job?.applyUrl),
       applyUrl: asString(job?.applyUrl) || asString(job?.hostedUrl) || null,
       sourcePublishedAt: dateIso(job?.createdAt),
+      sourceUpdatedAt: dateIso(job?.updatedAt),
       description,
       richContent,
       language: sourceLanguage(job?.language),
       locations,
+      tags,
     };
   });
 }
@@ -429,6 +516,12 @@ function normalizeAshby(payload: any): NormalizedJob[] {
     const location = locationText(locations);
     const { richContent, description } = primaryRichDescription(job?.descriptionPlain, job?.descriptionHtml || job?.description);
     const externalJobId = asString(job?.id) || asString(job?.jobId);
+    const tags = uniqueTags([
+      sourceTag(job?.department, 'department'),
+      sourceTag(job?.team, 'team'),
+      sourceTag(job?.employmentType, 'employment'),
+      sourceTag(job?.workplaceType, 'workplace'),
+    ]);
     return {
       externalJobId,
       canonicalKey: `ashby:${externalJobId || `${asString(job?.title)}:${asString(job?.applyUrl)}`}`,
@@ -439,10 +532,12 @@ function normalizeAshby(payload: any): NormalizedJob[] {
       sourceUrl: asString(job?.applyUrl) || asString(job?.jobUrl),
       applyUrl: asString(job?.applyUrl) || null,
       sourcePublishedAt: dateIso(job?.publishedAt) || dateIso(job?.createdAt),
+      sourceUpdatedAt: dateIso(job?.updatedAt),
       description,
       richContent,
       language: sourceLanguage(job?.language),
       locations,
+      tags,
     };
   });
 }
@@ -470,15 +565,84 @@ function normalizeBaiduStructuredBoard(payload: any, boardToken: string | null):
       sourceUrl: detailUrl,
       applyUrl: detailUrl || null,
       sourcePublishedAt: dateIso(job?.publishDate),
+      sourceUpdatedAt: dateIso(job?.updateDate),
       description,
       richContent,
       language: 'zh-CN',
       locations,
+      tags: uniqueTags([sourceTag(recruitType, 'employment', 'zh-CN')]),
     };
   });
 }
 
-function normalizePayload(sourceType: SourceType, payload: unknown, boardToken: string | null) {
+function workdayDepartment(description: string) {
+  const match = description.match(/(?:^|\n)Function:\s*\n?([^\n]{2,160})/i);
+  return match?.[1]?.trim() || null;
+}
+
+function workdayLocation(value: any) {
+  const descriptor = asString(value?.descriptor);
+  if (!descriptor) return null;
+  const parts = descriptor.split(/\s*-\s*/).map((part) => part.trim()).filter(Boolean);
+  const countryCode = asString(value?.country?.alpha2Code) || null;
+  const placeParts = parts.filter((part, index) => index > 0 || !/^(?:USA|US|CAN|CA)$/i.test(part));
+  const isRemote = placeParts.some((part) => /\bremote\b/i.test(part));
+  const concrete = placeParts.filter((part) => !/\bremote\b/i.test(part));
+  return {
+    name: descriptor,
+    countryCode,
+    region: concrete.length > 1 ? concrete[0] : isRemote ? concrete[0] ?? null : null,
+    city: isRemote ? (concrete.length > 1 ? concrete.at(-1) : null) : concrete.at(-1) ?? null,
+  };
+}
+
+function normalizeWorkdayStructuredBoard(payload: any, boardToken: string | null): NormalizedJob[] {
+  const config = boardToken ? WORKDAY_STRUCTURED_BOARDS[boardToken] : null;
+  const jobs = Array.isArray(payload?.jobs) ? payload.jobs : [];
+  return jobs.map((job: any) => {
+    const listing = job?.listing ?? {};
+    const posting = job?.posting ?? {};
+    const primaryLocation = posting?.jobRequisitionLocation ?? null;
+    const locations = normalizeJobLocations(flattenLocationValues(
+      workdayLocation(primaryLocation),
+      !primaryLocation ? posting?.location : null,
+      !primaryLocation && !/^\d+ Locations?$/i.test(asString(listing?.locationsText)) ? listing?.locationsText : null,
+    ));
+    const location = locationText(locations);
+    const { richContent, description } = richDescription(posting?.jobDescription);
+    const externalJobId = asString(posting?.jobReqId) || asString(listing?.bulletFields?.[0]);
+    const sourceUrl = asString(posting?.externalUrl)
+      || (config && asString(listing?.externalPath) ? `${config.origin}/${config.site}${asString(listing.externalPath)}` : '');
+    const country = asString(posting?.country?.descriptor) || asString(primaryLocation?.country?.descriptor);
+    const department = workdayDepartment(description);
+    const workplaceText = `${location ?? ''} ${description.slice(-2_000)}`;
+    return {
+      externalJobId,
+      canonicalKey: `workday:${boardToken ?? 'official'}:${externalJobId || asString(posting?.id) || asString(listing?.externalPath)}`,
+      title: asString(posting?.title) || asString(listing?.title),
+      location: location || null,
+      remoteType: remoteType(workplaceText),
+      employmentType: asString(posting?.timeType) || asString(listing?.timeType) || null,
+      sourceUrl,
+      applyUrl: sourceUrl ? `${sourceUrl.replace(/\/$/, '')}/apply` : null,
+      sourcePublishedAt: dateIso(posting?.startDate) || dateIso(listing?.startDate),
+      sourceUpdatedAt: null,
+      description,
+      richContent,
+      language: config?.language ?? 'en',
+      locations,
+      tags: uniqueTags([
+        sourceTag(department, 'department', config?.language ?? 'en'),
+        sourceTag(posting?.timeType ?? listing?.timeType, 'employment', config?.language ?? 'en'),
+        sourceTag(remoteType(workplaceText), 'workplace', config?.language ?? 'en'),
+        sourceTag(country, 'source', config?.language ?? 'en'),
+        sourceTag('Workday', 'source', 'en'),
+      ]),
+    };
+  });
+}
+
+export function normalizePayload(sourceType: SourceType, payload: unknown, boardToken: string | null) {
   const candidates = sourceType === 'greenhouse'
     ? normalizeGreenhouse(payload)
     : sourceType === 'lever'
@@ -486,29 +650,97 @@ function normalizePayload(sourceType: SourceType, payload: unknown, boardToken: 
       : sourceType === 'ashby'
         ? normalizeAshby(payload)
         : sourceType === 'json_ld'
-          ? normalizeBaiduStructuredBoard(payload, boardToken)
+          ? boardToken && WORKDAY_STRUCTURED_BOARDS[boardToken]
+            ? normalizeWorkdayStructuredBoard(payload, boardToken)
+            : normalizeBaiduStructuredBoard(payload, boardToken)
           : [];
   // Keep all active ATS jobs for absence detection, even if a provider omitted
   // a description. Only AI-relevant jobs are persisted as learning records.
   return candidates.filter((job) => job.title && job.sourceUrl);
 }
 
-function publicTextFor(description: string, displayPolicy: DisplayPolicy) {
+function rawPayloadJobs(sourceType: SourceType, payload: any, boardToken: string | null) {
+  if (sourceType === 'lever') return Array.isArray(payload) ? payload : [];
+  if (sourceType === 'greenhouse' || sourceType === 'ashby') return Array.isArray(payload?.jobs) ? payload.jobs : [];
+  if (sourceType === 'json_ld' && boardToken && WORKDAY_STRUCTURED_BOARDS[boardToken]) {
+    return Array.isArray(payload?.jobs) ? payload.jobs : [];
+  }
+  if (sourceType === 'json_ld') return Array.isArray(payload?.listData?.listDetailData) ? payload.listData.listDetailData : [];
+  return [];
+}
+
+function payloadChunk(sourceType: SourceType, payload: any, jobs: unknown[], boardToken: string | null) {
+  if (sourceType === 'lever') return jobs;
+  if (sourceType === 'greenhouse' || sourceType === 'ashby') return { jobs };
+  if (sourceType === 'json_ld' && boardToken && WORKDAY_STRUCTURED_BOARDS[boardToken]) {
+    return { ...payload, jobs };
+  }
+  if (sourceType === 'json_ld') {
+    return {
+      listData: {
+        ...(payload?.listData ?? {}),
+        listDetailData: jobs,
+      },
+    };
+  }
+  return payload;
+}
+
+function appendExcerptLines(target: string[], lines: string[]) {
+  for (const line of lines) {
+    if (!target.some((value) => value.localeCompare(line, undefined, { sensitivity: 'accent' }) === 0)) target.push(line);
+  }
+}
+
+function truncateExcerpt(lines: string[], maximum = 1_800) {
+  const output: string[] = [];
+  let length = 0;
+  for (const line of lines) {
+    const separator = output.length ? 2 : 0;
+    if (length + separator + line.length <= maximum) {
+      output.push(line);
+      length += separator + line.length;
+      continue;
+    }
+    const remaining = maximum - length - separator;
+    if (remaining > 80) output.push(`${line.slice(0, remaining - 1).trimEnd()}…`);
+    break;
+  }
+  return output.join('\n\n');
+}
+
+/**
+ * Build a compact, source-language excerpt. The introduction establishes the
+ * role, while requirements and responsibilities retain enough concrete text
+ * for applicants and deterministic public skill evidence.
+ */
+export function publicTextFor(description: string, displayPolicy: DisplayPolicy) {
   if (displayPolicy === 'metadata_only') return '';
   // The full JD stays in its original source language. htmlToPlainText only
   // removes presentation/script markup; it does not translate or summarize.
   if (displayPolicy === 'full_text_authorized') return description.slice(0, 50_000);
 
   const lines = description.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-  const relevant = lines.filter((line) => AI_RELEVANCE.test(line));
-  const candidate = (relevant.length ? relevant : lines).join('\n\n');
-  return candidate.length > 1_800 ? `${candidate.slice(0, 1_797).trimEnd()}…` : candidate;
+  const excerpt: string[] = [];
+  appendExcerptLines(excerpt, lines.slice(0, 2));
+
+  const requirements = lines.findIndex((line) => /^(what (?:we|you) (?:look for|need)|requirements?|qualifications?|who you are|任职要求|任職要求|职位要求|職位要求|任职资格|任職資格)/i.test(line));
+  if (requirements >= 0) appendExcerptLines(excerpt, lines.slice(requirements, requirements + 6));
+  const responsibilities = lines.findIndex((line) => /^(what you(?:'|’)ll do|your (?:impact|responsibilities)|responsibilities|the impact you will have|岗位职责|職位職責|工作职责|工作職責)/i.test(line));
+  if (responsibilities >= 0) appendExcerptLines(excerpt, lines.slice(responsibilities, responsibilities + 5));
+  appendExcerptLines(excerpt, lines.filter((line) => AI_RELEVANCE.test(line)).slice(0, 8));
+  if (excerpt.length < 3) appendExcerptLines(excerpt, lines);
+  return truncateExcerpt(excerpt);
 }
 
 function publicContentFor(richContent: JobRichTextDocument, description: string, displayPolicy: DisplayPolicy) {
   if (displayPolicy === 'full_text_authorized') return richContent;
   const text = publicTextFor(description, displayPolicy);
   return jobRichTextFromValue(text);
+}
+
+async function presentationHash(semanticHash: string, displayPolicy: DisplayPolicy) {
+  return sha256Base64Url(JSON.stringify({ semanticHash, displayPolicy, presentationVersion: JOB_PRESENTATION_VERSION }));
 }
 
 function escapedRegex(value: string) {
@@ -553,6 +785,43 @@ export function findSkillMatches(text: string, aliases: SkillAliasRow[]) {
   return matches.sort((a, b) => a.start - b.start || b.end - a.end);
 }
 
+async function fetchBoundedJson(url: string, init: RequestInit, label: string) {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+      const contentLength = Number(response.headers.get('content-length') ?? '0');
+      if (contentLength > MAX_RESPONSE_BYTES) throw new ApiError(413, `${label} response exceeds the configured size limit`);
+      const raw = await response.text();
+      if (new TextEncoder().encode(raw).byteLength > MAX_RESPONSE_BYTES) {
+        throw new ApiError(413, `${label} response exceeds the configured size limit`);
+      }
+      if (!response.ok) {
+        const transient = response.status === 429 || response.status >= 500;
+        if (transient && attempt === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          continue;
+        }
+        throw new ApiError(502, `${label} returned HTTP ${response.status}`);
+      }
+      try {
+        return { response, raw, payload: JSON.parse(raw) as any };
+      } catch {
+        throw new ApiError(502, `${label} returned invalid JSON`);
+      }
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0 && error instanceof Error && error.name === 'AbortError') continue;
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastError ?? new ApiError(502, `${label} could not be fetched`);
+}
+
 async function fetchOfficialSource(source: JobSourceRecord) {
   const isStructuredOfficialBoard = source.source_type === 'json_ld';
   if (!isStructuredOfficialBoard && !ATS_SOURCE_TYPES.includes(source.source_type as AtsSourceType)) {
@@ -561,6 +830,62 @@ async function fetchOfficialSource(source: JobSourceRecord) {
   const endpoint = isStructuredOfficialBoard
     ? officialStructuredBoardEndpoint(source.board_token ?? '')
     : officialAtsEndpoint(source.source_type as AtsSourceType, source.board_token ?? '');
+  const workdayConfig = source.board_token ? WORKDAY_STRUCTURED_BOARDS[source.board_token] : null;
+  if (isStructuredOfficialBoard && workdayConfig) {
+    const listPage = async (offset: number) => fetchBoundedJson(endpoint, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'user-agent': 'StudyAINowJobSkillsMap/1.0 (+https://studyai.now)',
+      },
+      body: JSON.stringify({
+        appliedFacets: workdayConfig.appliedFacets,
+        limit: 20,
+        offset,
+        searchText: workdayConfig.searchText,
+      }),
+    }, 'The official Workday catalogue');
+    const firstPage = await listPage(0);
+    const total = Math.max(0, Math.min(500, Number(firstPage.payload?.total ?? 0)));
+    const offsets = Array.from({ length: Math.max(0, Math.ceil(total / 20) - 1) }, (_, index) => (index + 1) * 20);
+    const remainingPages = await runConcurrent(offsets, 3, listPage);
+    const listings = [firstPage, ...remainingPages]
+      .flatMap((page) => Array.isArray(page.payload?.jobPostings) ? page.payload.jobPostings : [])
+      .filter((listing: any, index: number, values: any[]) => {
+        const path = asString(listing?.externalPath);
+        return path.startsWith('/job/') && values.findIndex((candidate) => asString(candidate?.externalPath) === path) === index;
+      });
+    const jobs = await runConcurrent(listings, 4, async (listing: any) => {
+      const externalPath = asString(listing?.externalPath);
+      const detailEndpoint = `${workdayConfig.origin}/wday/cxs/${encodeURIComponent(workdayConfig.tenant)}/${encodeURIComponent(workdayConfig.site)}${externalPath}`;
+      const detail = await fetchBoundedJson(detailEndpoint, {
+        method: 'GET',
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'StudyAINowJobSkillsMap/1.0 (+https://studyai.now)',
+        },
+      }, 'The official Workday job detail');
+      if (!detail.payload?.jobPostingInfo) throw new ApiError(502, 'The official Workday job detail is incomplete');
+      return { listing, posting: detail.payload.jobPostingInfo };
+    });
+    const payload = {
+      adapter: 'workday_cxs',
+      boardToken: source.board_token,
+      scope: { region: 'North America', countries: ['Canada', 'United States of America'], searchText: workdayConfig.searchText },
+      totalCandidateCount: total,
+      jobs,
+    };
+    const raw = JSON.stringify(payload);
+    if (new TextEncoder().encode(raw).byteLength > MAX_RESPONSE_BYTES) {
+      throw new ApiError(413, 'The official Workday response exceeds the configured size limit');
+    }
+    return {
+      response: new Response(raw, { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } }),
+      raw,
+      payload,
+    };
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -640,6 +965,69 @@ async function addEvidence(
   return accepted.length;
 }
 
+type PresentationInput = {
+  jobId: string;
+  versionId: string;
+  semanticHash: string;
+  displayPolicy: DisplayPolicy;
+  description: string;
+  richContent: JobRichTextDocument;
+};
+
+async function rebuildJobPresentation(db: D1Database, input: PresentationInput, aliases: SkillAliasRow[]) {
+  const publicContent = publicContentFor(input.richContent, input.description, input.displayPolicy);
+  const publicText = jobRichTextToPlainText(publicContent);
+  const hash = await presentationHash(input.semanticHash, input.displayPolicy);
+  const currentPublicSections = await db.prepare(
+    `SELECT id FROM job_sections
+     WHERE job_id = ? AND version_id = ? AND visibility = 'public'`,
+  ).bind(input.jobId, input.versionId).all<{ id: string }>();
+
+  if (currentPublicSections.results.length) {
+    const placeholders = currentPublicSections.results.map(() => '?').join(', ');
+    await db.prepare(`DELETE FROM job_skill_evidence WHERE section_id IN (${placeholders})`)
+      .bind(...currentPublicSections.results.map((section) => section.id)).run();
+    await db.prepare(
+      `DELETE FROM job_sections WHERE job_id = ? AND version_id = ? AND visibility = 'public'`,
+    ).bind(input.jobId, input.versionId).run();
+  }
+
+  let evidence = 0;
+  if (publicText) {
+    const sectionId = crypto.randomUUID();
+    await db.prepare(
+      `INSERT INTO job_sections
+       (id, job_id, version_id, section_key, title, public_text, rich_content_json, order_index, visibility)
+       VALUES (?, ?, ?, 'description', 'Role description', ?, ?, 1, 'public')`,
+    ).bind(sectionId, input.jobId, input.versionId, publicText, JSON.stringify(publicContent)).run();
+    evidence = await addEvidence(db, input.jobId, input.versionId, sectionId, publicText, aliases);
+  }
+
+  if (input.description && publicText !== input.description) {
+    const privateSection = await db.prepare(
+      `SELECT id FROM job_sections
+       WHERE job_id = ? AND version_id = ? AND section_key = 'analysis_source' LIMIT 1`,
+    ).bind(input.jobId, input.versionId).first<{ id: string }>();
+    if (!privateSection) {
+      const analysisSectionId = crypto.randomUUID();
+      await db.prepare(
+        `INSERT INTO job_sections
+         (id, job_id, version_id, section_key, title, public_text, rich_content_json, order_index, visibility)
+         VALUES (?, ?, ?, 'analysis_source', 'Private source analysis', ?, NULL, 2, 'analysis_only')`,
+      ).bind(analysisSectionId, input.jobId, input.versionId, input.description).run();
+      await addEvidence(db, input.jobId, input.versionId, analysisSectionId, input.description, aliases);
+    }
+  }
+
+  await db.prepare(
+    `UPDATE job_postings
+     SET display_policy = ?, presentation_version = ?, presentation_hash = ?,
+         presentation_lock_until = NULL, presentation_error = NULL, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND current_version_id = ?`,
+  ).bind(input.displayPolicy, JOB_PRESENTATION_VERSION, hash, input.jobId, input.versionId).run();
+  return { publicCharacters: publicText.length, evidence };
+}
+
 async function upsertNormalizedJob(
   db: D1Database,
   source: JobSourceRecord,
@@ -649,6 +1037,7 @@ async function upsertNormalizedJob(
 ) {
   const publicContent = publicContentFor(candidate.richContent, candidate.description, source.display_policy);
   const publicText = jobRichTextToPlainText(publicContent);
+  const analysisText = candidate.description.slice(0, 50_000);
   const semanticHash = await sha256Base64Url(JSON.stringify({
     title: candidate.title,
     location: candidate.location,
@@ -656,31 +1045,51 @@ async function upsertNormalizedJob(
     employmentType: candidate.employmentType,
     sourceUrl: candidate.sourceUrl,
     applyUrl: candidate.applyUrl,
+    sourcePublishedAt: candidate.sourcePublishedAt,
+    sourceUpdatedAt: candidate.sourceUpdatedAt,
     description: candidate.description,
     richContent: candidate.richContent,
     locations: candidate.locations,
+    tags: candidate.tags,
   }));
+  const currentPresentationHash = await presentationHash(semanticHash, source.display_policy);
   const existing = await db.prepare(
-    `SELECT id, current_version_id, status,
+    `SELECT id, current_version_id, status, display_policy, presentation_version,
             (SELECT semantic_hash FROM job_versions WHERE id = job_postings.current_version_id) AS semantic_hash
      FROM job_postings
      WHERE source_id = ? AND (canonical_key = ? OR (external_job_id IS NOT NULL AND external_job_id = ?))
      LIMIT 1`,
   ).bind(source.id, candidate.canonicalKey, candidate.externalJobId || null).first<{
-    id: string; current_version_id: string | null; status: string; semantic_hash: string | null;
+    id: string; current_version_id: string | null; status: string; display_policy: DisplayPolicy;
+    presentation_version: number; semantic_hash: string | null;
   }>();
 
   if (existing?.semantic_hash === semanticHash) {
+    const seenAt = new Date().toISOString();
     await db.prepare(
       `UPDATE job_postings
        SET title = ?, location_text = ?, remote_type = ?, employment_type = ?, source_url = ?, apply_url = ?,
-           updated_at = CURRENT_TIMESTAMP
+           source_published_at = COALESCE(source_published_at, ?), source_updated_at = ?,
+           last_seen_at = ?, last_verified_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
     ).bind(
       candidate.title, candidate.location, candidate.remoteType, candidate.employmentType, candidate.sourceUrl,
-      candidate.applyUrl, existing.id,
+      candidate.applyUrl, candidate.sourcePublishedAt, candidate.sourceUpdatedAt, seenAt, existing.id,
     ).run();
-    return { created: false, changed: false };
+    const presentationChanged = Boolean(existing.current_version_id) && (
+      existing.display_policy !== source.display_policy || Number(existing.presentation_version) < JOB_PRESENTATION_VERSION
+    );
+    if (presentationChanged) {
+      await rebuildJobPresentation(db, {
+        jobId: existing.id,
+        versionId: existing.current_version_id!,
+        semanticHash,
+        displayPolicy: source.display_policy,
+        description: candidate.description,
+        richContent: candidate.richContent,
+      }, aliases);
+    }
+    return { created: false, changed: false, presentationChanged };
   }
 
   const jobId = existing?.id ?? crypto.randomUUID();
@@ -700,41 +1109,54 @@ async function upsertNormalizedJob(
     ? ((await db.prepare('SELECT MAX(version_no) AS value FROM job_versions WHERE job_id = ?').bind(jobId).first<{ value: number | null }>())?.value ?? 0) + 1
     : 1;
 
+  const coreStatements: D1PreparedStatement[] = [];
   if (!existing) {
-    await db.prepare(
+    coreStatements.push(db.prepare(
       `INSERT INTO job_postings
        (id, source_id, company_id, external_job_id, slug, canonical_key, title, normalized_title,
         location_text, remote_type, employment_type, source_url, original_source_url, apply_url, source_attribution, display_policy,
-        source_published_at, collected_at, suspected_expired_at, url_check_status, language, current_version_id, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, 'published')`,
+        source_published_at, source_updated_at, collected_at, first_collected_at, last_seen_at,
+        suspected_expired_at, url_check_status, language, presentation_version, presentation_hash, current_version_id, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, NULL, 'published')`,
     ).bind(
       jobId, source.id, source.company_id, candidate.externalJobId || null, slug, candidate.canonicalKey, candidate.title,
       candidate.title.toLowerCase(), candidate.location, candidate.remoteType, candidate.employmentType, candidate.sourceUrl,
-      candidate.sourceUrl, candidate.applyUrl, source.official_career_url, source.display_policy, publishedAt, collectedAt,
-      nextSuspectedExpiryAt, candidate.language, versionId,
-    ).run();
-    await db.prepare(
+      candidate.sourceUrl, candidate.applyUrl, source.official_career_url, source.display_policy, publishedAt,
+      candidate.sourceUpdatedAt, collectedAt, collectedAt, collectedAt, nextSuspectedExpiryAt, candidate.language,
+      0, null,
+    ));
+    coreStatements.push(db.prepare(
       `INSERT INTO job_status_events (id, job_id, from_status, to_status, reason)
        VALUES (?, ?, NULL, 'published', 'Automatically published from an approved official ATS source')`,
-    ).bind(crypto.randomUUID(), jobId).run();
+    ).bind(crypto.randomUUID(), jobId));
   } else {
-    await db.prepare(
+    coreStatements.push(db.prepare(
       `UPDATE job_postings
        SET external_job_id = ?, canonical_key = ?, slug = ?, title = ?, normalized_title = ?, location_text = ?, remote_type = ?,
-           employment_type = ?, source_url = ?, apply_url = ?, display_policy = ?, language = ?, current_version_id = ?,
+           employment_type = ?, source_url = ?, apply_url = ?, display_policy = ?, language = ?,
+           presentation_version = ?, presentation_hash = ?, presentation_lock_until = NULL, presentation_error = NULL,
+           source_published_at = COALESCE(source_published_at, ?), source_updated_at = ?, last_seen_at = ?,
+           last_verified_at = CURRENT_TIMESTAMP,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
     ).bind(
       candidate.externalJobId || null, candidate.canonicalKey, slug, candidate.title, candidate.title.toLowerCase(), candidate.location,
       candidate.remoteType, candidate.employmentType, candidate.sourceUrl, candidate.applyUrl, source.display_policy,
-      candidate.language, versionId, jobId,
-    ).run();
+      candidate.language, 0, null,
+      candidate.sourcePublishedAt, candidate.sourceUpdatedAt, collectedAt, jobId,
+    ));
   }
 
-  await db.prepare(
+  coreStatements.push(db.prepare(
     `INSERT INTO job_versions (id, job_id, snapshot_id, version_no, semantic_hash, normalized_json)
      VALUES (?, ?, ?, ?, ?, ?)`,
-  ).bind(versionId, jobId, snapshotId, versionNo, semanticHash, JSON.stringify({ ...candidate, publicText })).run();
+  ).bind(versionId, jobId, snapshotId, versionNo, semanticHash, JSON.stringify({ ...candidate, publicText })));
+  coreStatements.push(db.prepare(
+    `UPDATE job_postings SET current_version_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+  ).bind(versionId, jobId));
+  // The posting pointer and its immutable version must commit together. This
+  // prevents a Worker termination from leaving current_version_id dangling.
+  await db.batch(coreStatements);
 
   for (const [index, location] of candidate.locations.entries()) {
     await db.prepare(
@@ -748,12 +1170,43 @@ async function upsertNormalizedJob(
     ).run();
   }
 
-  if (publicText) {
+  if (candidate.tags.length) {
+    await db.batch(candidate.tags.map((tag) => db.prepare(
+      `INSERT INTO job_tags
+       (id, job_id, version_id, tag_key, label, tag_type, language, source_method, confidence, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'source_metadata', 1, 'active')
+       ON CONFLICT(version_id, tag_type, tag_key, source_method) DO UPDATE SET
+         label = excluded.label, language = excluded.language, status = 'active', updated_at = CURRENT_TIMESTAMP`,
+    ).bind(crypto.randomUUID(), jobId, versionId, tag.key, tag.label, tag.type, tag.language)));
+  }
+
+  if (analysisText) {
+    const analysisOnly = !publicText || publicText !== analysisText;
+    const analysisSectionId = analysisOnly ? crypto.randomUUID() : sectionId;
+    if (publicText) {
+      await db.prepare(
+        `INSERT INTO job_sections
+         (id, job_id, version_id, section_key, title, public_text, rich_content_json, order_index, visibility)
+         VALUES (?, ?, ?, 'description', 'Role description', ?, ?, 1, 'public')`,
+      ).bind(sectionId, jobId, versionId, publicText, JSON.stringify(publicContent)).run();
+      await addEvidence(db, jobId, versionId, sectionId, publicText, aliases);
+    }
+    if (analysisOnly) {
+      await db.prepare(
+        `INSERT INTO job_sections
+         (id, job_id, version_id, section_key, title, public_text, rich_content_json, order_index, visibility)
+         VALUES (?, ?, ?, 'analysis_source', 'Private source analysis', ?, NULL, 2, 'analysis_only')`,
+      ).bind(analysisSectionId, jobId, versionId, analysisText).run();
+      await addEvidence(db, jobId, versionId, analysisSectionId, analysisText, aliases);
+    }
+    // Mark this derived presentation complete only after its public/private
+    // sections exist. A termination before here leaves version 0 for the
+    // resumable presentation worker to repair from normalized_json.
     await db.prepare(
-      `INSERT INTO job_sections (id, job_id, version_id, section_key, title, public_text, rich_content_json, order_index)
-       VALUES (?, ?, ?, 'description', 'Role description', ?, ?, 1)`,
-    ).bind(sectionId, jobId, versionId, publicText, JSON.stringify(publicContent)).run();
-    await addEvidence(db, jobId, versionId, sectionId, publicText, aliases);
+      `UPDATE job_postings
+       SET presentation_version = ?, presentation_hash = ?, presentation_error = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND current_version_id = ?`,
+    ).bind(JOB_PRESENTATION_VERSION, currentPresentationHash, jobId, versionId).run();
     // A job-version refresh is independent from the current course catalogue.
     // It can safely wait for an LLM provider and an editor review, then be
     // remapped whenever new skills or course coverage are approved.
@@ -763,8 +1216,85 @@ async function upsertNormalizedJob(
       sourceHash: semanticHash,
       locator: { jobId, versionId },
     });
+    await enqueueJobVectorIndex(db, { jobId, versionId, semanticHash });
   }
-  return { created: !existing, changed: Boolean(existing) };
+  return { created: !existing, changed: Boolean(existing), presentationChanged: false };
+}
+
+type PendingPresentationRow = {
+  id: string;
+  current_version_id: string;
+  semantic_hash: string;
+  normalized_json: string;
+  target_display_policy: DisplayPolicy;
+};
+
+/**
+ * Rebuild public sections when display rights or rendering rules change. The
+ * immutable source snapshot, private analysis section, semantic tags, and job
+ * vector remain untouched because their input did not change.
+ */
+export async function runPendingJobPresentationRefresh(env: Env, limit = 32) {
+  const batchSize = Math.max(1, Math.min(Math.floor(limit), 48));
+  const rows = await env.DB.prepare(
+    `SELECT job_postings.id, job_postings.current_version_id, job_versions.semantic_hash,
+            job_versions.normalized_json, job_sources.display_policy AS target_display_policy
+     FROM job_postings
+     JOIN job_sources ON job_sources.id = job_postings.source_id
+     JOIN job_versions ON job_versions.id = job_postings.current_version_id
+     WHERE job_postings.status = 'published'
+       AND (job_postings.presentation_version < ? OR job_postings.display_policy <> job_sources.display_policy)
+       AND (job_postings.presentation_lock_until IS NULL OR job_postings.presentation_lock_until < CURRENT_TIMESTAMP)
+     ORDER BY CASE WHEN job_postings.display_policy <> job_sources.display_policy THEN 0 ELSE 1 END,
+              job_postings.presentation_version, job_postings.id
+     LIMIT ?`,
+  ).bind(JOB_PRESENTATION_VERSION, batchSize).all<PendingPresentationRow>();
+  const aliases = rows.results.length ? await loadSkillAliases(env.DB) : [];
+  let refreshed = 0;
+  let failed = 0;
+  let publicCharacters = 0;
+  let evidence = 0;
+
+  for (const row of rows.results) {
+    const lockedUntil = new Date(Date.now() + 90_000).toISOString();
+    const claim = await env.DB.prepare(
+      `UPDATE job_postings SET presentation_lock_until = ?, presentation_error = NULL
+       WHERE id = ? AND current_version_id = ?
+         AND (presentation_version < ? OR display_policy <> ?)
+         AND (presentation_lock_until IS NULL OR presentation_lock_until < CURRENT_TIMESTAMP)`,
+    ).bind(lockedUntil, row.id, row.current_version_id, JOB_PRESENTATION_VERSION, row.target_display_policy).run();
+    if (!claim.meta.changes) continue;
+    try {
+      const normalized = safeNormalizedJson(row.normalized_json);
+      const description = typeof normalized.description === 'string' ? normalized.description.slice(0, 50_000) : '';
+      const richContent = parseJobRichText(normalized.richContent) ?? jobRichTextFromValue(description);
+      const result = await rebuildJobPresentation(env.DB, {
+        jobId: row.id,
+        versionId: row.current_version_id,
+        semanticHash: row.semantic_hash,
+        displayPolicy: row.target_display_policy,
+        description,
+        richContent,
+      }, aliases);
+      refreshed += 1;
+      publicCharacters += result.publicCharacters;
+      evidence += result.evidence;
+    } catch (error) {
+      failed += 1;
+      await env.DB.prepare(
+        `UPDATE job_postings SET presentation_lock_until = NULL, presentation_error = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      ).bind(safeErrorMessage(error).slice(0, 500), row.id).run();
+    }
+  }
+
+  const remaining = await env.DB.prepare(
+    `SELECT COUNT(*) AS value
+     FROM job_postings JOIN job_sources ON job_sources.id = job_postings.source_id
+     WHERE job_postings.status = 'published'
+       AND (job_postings.presentation_version < ? OR job_postings.display_policy <> job_sources.display_policy)`,
+  ).bind(JOB_PRESENTATION_VERSION).first<{ value: number }>();
+  return { selected: rows.results.length, refreshed, failed, publicCharacters, evidence, remaining: Number(remaining?.value ?? 0) };
 }
 
 async function uniqueSlug(db: D1Database, base: string, currentJobId: string | null) {
@@ -1064,6 +1594,22 @@ async function inspectJobUrl(job: JobUrlInspectionRow): Promise<JobUrlInspection
   }
 }
 
+function safeSameSiteCanonicalUrl(originalUrl: string, finalUrl: string | null) {
+  if (!finalUrl) return null;
+  try {
+    const original = new URL(originalUrl);
+    const final = new URL(finalUrl);
+    if (final.protocol !== 'https:') return null;
+    const originalHost = original.hostname.toLowerCase().replace(/^www\./, '');
+    const finalHost = final.hostname.toLowerCase().replace(/^www\./, '');
+    return originalHost === finalHost || finalHost.endsWith(`.${originalHost}`) || originalHost.endsWith(`.${finalHost}`)
+      ? final.toString()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 async function runConcurrent<T, R>(items: T[], concurrency: number, operation: (item: T) => Promise<R>) {
   const results: R[] = [];
   let next = 0;
@@ -1085,7 +1631,7 @@ async function runConcurrent<T, R>(items: T[], concurrency: number, operation: (
 export async function inspectDueJobUrls(env: Env, limit = 40, initialOnly = false) {
   const batchSize = Math.max(1, Math.min(Math.floor(limit), 64));
   const jobs = await env.DB.prepare(
-    `SELECT id, title, external_job_id, source_url, original_source_url,
+    `SELECT id, title, external_job_id, source_url, original_source_url, apply_url,
             source_published_at, collected_at, status
      FROM job_postings
      WHERE status = 'published'
@@ -1109,6 +1655,8 @@ export async function inspectDueJobUrls(env: Env, limit = 40, initialOnly = fals
     const publishedAt = job.source_published_at || job.collected_at || now;
     const isActive = result.outcome === 'active';
     const isMissing = result.outcome === 'missing';
+    const checkedUrl = job.original_source_url || job.source_url;
+    const canonicalUrl = isActive ? safeSameSiteCanonicalUrl(checkedUrl, result.finalUrl) : null;
     const nextExpiry = isActive ? suspectedExpiryAt(publishedAt, now) : null;
     const nextStatus = isMissing ? 'expired' : job.status;
     if (isActive) active += 1;
@@ -1120,13 +1668,16 @@ export async function inspectDueJobUrls(env: Env, limit = 40, initialOnly = fals
       env.DB.prepare(
         `UPDATE job_postings
          SET status = ?, collected_at = CASE WHEN ? THEN ? ELSE collected_at END,
+             source_url = COALESCE(?, source_url),
+             apply_url = CASE WHEN ? IS NOT NULL AND (apply_url IS NULL OR apply_url = source_url OR apply_url = original_source_url)
+                              THEN ? ELSE apply_url END,
              suspected_expired_at = CASE WHEN ? THEN ? ELSE suspected_expired_at END,
              expires_at = CASE WHEN ? THEN CURRENT_TIMESTAMP WHEN ? THEN NULL ELSE expires_at END,
              last_url_checked_at = ?, url_check_status = ?, url_check_http_status = ?, url_check_error = ?,
              missing_run_count = 0, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
       ).bind(
-        nextStatus, isActive ? 1 : 0, now, isActive ? 1 : 0, nextExpiry,
+        nextStatus, isActive ? 1 : 0, now, canonicalUrl, canonicalUrl, canonicalUrl, isActive ? 1 : 0, nextExpiry,
         isMissing ? 1 : 0, isActive ? 1 : 0, now, result.outcome, result.httpStatus, result.detail, job.id,
       ),
       env.DB.prepare(
@@ -1168,7 +1719,7 @@ export async function inspectDueJobUrls(env: Env, limit = 40, initialOnly = fals
   };
 }
 
-export async function runDueSourceSync(env: Env, limit = 20) {
+export async function runDueSourceSync(env: Env, limit = 50) {
   const sources = await env.DB.prepare(
     `SELECT id FROM job_sources
      WHERE enabled = 1
@@ -1178,9 +1729,13 @@ export async function runDueSourceSync(env: Env, limit = 20) {
        AND (sync_lock_until IS NULL OR sync_lock_until < CURRENT_TIMESTAMP)
      ORDER BY COALESCE(next_fetch_at, created_at), created_at
      LIMIT ?`,
-  ).bind(Math.max(1, Math.min(limit, 20))).all<{ id: string }>();
+  ).bind(Math.max(1, Math.min(limit, 50))).all<{ id: string }>();
   let started = 0;
-  for (const source of sources.results) {
+  // Large official boards can exceed 9 MB before parsing. One source at a
+  // time keeps raw JSON, parsed payloads, and normalized rich text below the
+  // Worker memory ceiling while still covering every source in the same two
+  // authoritative daily runs.
+  await runConcurrent(sources.results, 1, async (source) => {
     try {
       const runId = await startSourceSync(env.DB, source.id);
       started += 1;
@@ -1192,8 +1747,38 @@ export async function runDueSourceSync(env: Env, limit = 20) {
         console.error('Scheduled job source sync could not start', { sourceId: source.id, error: safeErrorMessage(error) });
       }
     }
-  }
+    return source.id;
+  });
   return { dueSources: sources.results.length, started };
+}
+
+/**
+ * Bootstrap one newly approved source on the existing maintenance schedule.
+ * This does not change its ongoing cadence: after the first successful fetch,
+ * the source returns to the authoritative twice-daily catalogue cron.
+ */
+export async function runInitialSourceSync(env: Env) {
+  const source = await env.DB.prepare(
+    `SELECT id FROM job_sources
+     WHERE enabled = 1
+       AND last_fetched_at IS NULL
+       AND acquisition_policy IN ('api_allowed', 'structured_data')
+       AND source_type IN ('greenhouse', 'lever', 'ashby', 'json_ld')
+       AND (sync_lock_until IS NULL OR sync_lock_until < CURRENT_TIMESTAMP)
+     ORDER BY created_at DESC
+     LIMIT 1`,
+  ).first<{ id: string }>();
+  if (!source) return { found: false, started: false, sourceId: null as string | null };
+  try {
+    const runId = await startSourceSync(env.DB, source.id);
+    await runSourceSync(env, source.id, runId);
+    return { found: true, started: true, sourceId: source.id };
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 409) {
+      console.error('Initial job source sync could not start', { sourceId: source.id, error: safeErrorMessage(error) });
+    }
+    return { found: true, started: false, sourceId: source.id };
+  }
 }
 
 export async function runSourceSync(env: Env, sourceId: string, runId: string) {
@@ -1207,9 +1792,10 @@ export async function runSourceSync(env: Env, sourceId: string, runId: string) {
 
   await env.DB.prepare("UPDATE crawl_runs SET status = 'running' WHERE id = ? AND status = 'queued'").bind(runId).run();
   try {
-    const { response, raw, payload } = await fetchOfficialSource(source);
+    let { response, raw, payload } = await fetchOfficialSource(source);
     const rawHash = await sha256Base64Url(raw);
-    const storageKey = `jobs/raw/${runId}/${source.id}.${source.source_type === 'json_ld' ? 'html' : 'json'}`;
+    const structuredJson = source.source_type === 'json_ld' && Boolean(source.board_token && WORKDAY_STRUCTURED_BOARDS[source.board_token]);
+    const storageKey = `jobs/raw/${runId}/${source.id}.${source.source_type === 'json_ld' && !structuredJson ? 'html' : 'json'}`;
     await env.COURSE_STORAGE.put(storageKey, raw, {
       httpMetadata: { contentType: response.headers.get('content-type') ?? 'application/json' },
       customMetadata: { sourceId: source.id, runId, fetchedAt: new Date().toISOString(), visibility: 'private' },
@@ -1222,24 +1808,44 @@ export async function runSourceSync(env: Env, sourceId: string, runId: string) {
       snapshotId, runId, source.id, storageKey, rawHash, response.headers.get('content-type') ?? 'application/json', response.status,
       response.headers.get('etag'), response.headers.get('last-modified'),
     ).run();
+    // R2 now owns the immutable audit copy. Do not retain a second 5-20 MB
+    // string while normalizing hundreds of rich-text job descriptions.
+    raw = '';
 
-    const candidates = normalizePayload(source.source_type, payload, source.board_token);
-    const relevant = candidates.filter((job) => isAiRelevantJob(job.title, job.description));
+    const sourceJobs = rawPayloadJobs(source.source_type, payload, source.board_token);
     const aliases = await loadSkillAliases(env.DB);
+    let discoveredCount = 0;
+    let relevantCount = 0;
     let newCount = 0;
     let updatedCount = 0;
-    for (const candidate of relevant) {
-      const result = await upsertNormalizedJob(env.DB, source, snapshotId, candidate, aliases);
-      if (result.created) newCount += 1;
-      if (result.changed) updatedCount += 1;
+    for (let offset = 0; offset < sourceJobs.length; offset += 20) {
+      const candidates = normalizePayload(
+        source.source_type,
+        payloadChunk(source.source_type, payload, sourceJobs.slice(offset, offset + 20), source.board_token),
+        source.board_token,
+      );
+      discoveredCount += candidates.length;
+      for (const candidate of candidates) {
+        if (!isAiRelevantJob(candidate.title, candidate.description)) continue;
+        relevantCount += 1;
+        const result = await upsertNormalizedJob(env.DB, source, snapshotId, candidate, aliases);
+        if (result.created) newCount += 1;
+        if (result.changed || result.presentationChanged) updatedCount += 1;
+      }
     }
     await env.DB.batch([
       env.DB.prepare(
         `UPDATE crawl_runs SET status = 'complete_success', completed_at = CURRENT_TIMESTAMP, http_status = ?, discovered_count = ?,
                 relevant_count = ?, new_count = ?, updated_count = ?, stats_json = ? WHERE id = ?`,
       ).bind(
-        response.status, candidates.length, relevant.length, newCount, updatedCount,
-        JSON.stringify({ sourceType: source.source_type, expiryPolicy: 'direct_original_url_only' }), runId,
+        response.status, discoveredCount, relevantCount, newCount, updatedCount,
+        JSON.stringify({
+          sourceType: source.source_type,
+          adapter: source.board_token && WORKDAY_STRUCTURED_BOARDS[source.board_token] ? 'workday_cxs' : undefined,
+          scope: source.board_token && WORKDAY_STRUCTURED_BOARDS[source.board_token] ? 'north_america_ai_candidates' : undefined,
+          candidateCount: Number((payload as any)?.totalCandidateCount ?? sourceJobs.length),
+          expiryPolicy: 'direct_original_url_only',
+        }), runId,
       ),
       env.DB.prepare(
         // Cron is the authoritative cadence (00:00 and 12:00 UTC). Keeping

@@ -58,7 +58,7 @@ type PublicInfoCopy = {
   };
 };
 
-const updatedAt = '2026-08-13';
+const updatedAt = '2026-08-21';
 
 const copy: Record<AppLocale, PublicInfoCopy> = {
   'zh-CN': {
@@ -73,6 +73,7 @@ const copy: Record<AppLocale, PublicInfoCopy> = {
           { heading: '我们处理的信息', body: '注册与登录时，我们会处理你的显示名称、邮箱地址、经加密处理的密码、验证状态和登录会话。使用学习服务时，还会处理课程进度、书签、创作课程、简历资料以及你主动提交的联系消息。' },
           { heading: '使用目的', body: '这些信息只用于认证账户、验证邮箱、找回密码、保存学习进度、生成或保存你的简历、提供你请求的功能、回应咨询，以及维护网站安全和稳定。我们不会要求银行卡号、身份证号、私钥、助记词或一次性验证码。' },
           { heading: '服务提供方', body: '网站由 Cloudflare 托管页面、接口、D1 数据库和 R2 存储；事务性邮件由 Resend 发送。你选择使用 Google 登录时，Google 还会按其自身政策处理相关登录信息。' },
+          { heading: '广告与 Cookie', body: '在包含广告的公开课程或练习页面上，Google AdSense 等第三方供应商可能使用 Cookie、IP 地址、网络信标或类似标识符来提供、限制、衡量和改进广告。Google 及其合作伙伴可能根据你访问本站或其他网站的情况提供个性化广告；你可以通过 Google 广告设置管理或关闭个性化广告。我们不会在登录、注册、账户、简历、管理、联系、法律声明、错误或加载页面请求 Google 广告。对依法需要同意的地区，我们会通过 Google 认可的同意管理平台收集和传递选择。' },
           { heading: '联系表单与保存期限', body: '联系表单的姓名、邮箱和消息会通过邮件发送给客服，用于回复你的咨询；网站仅短暂保存经过哈希处理的网络标识来限制滥用，不保存表单消息正文。账户资料会在账户存续期间保存；你可以请求查询、更正或删除。' },
           { heading: '联系我们', body: '如需隐私、账户或数据删除协助，请联系 studyainow@mail.com。' },
         ],
@@ -145,6 +146,7 @@ const copy: Record<AppLocale, PublicInfoCopy> = {
           { heading: '我們處理的資料', body: '註冊與登入時，我們會處理你的顯示名稱、電郵地址、經加密處理的密碼、驗證狀態和登入工作階段。使用學習服務時，還會處理課程進度、書籤、創作課程、履歷資料，以及你主動提交的聯絡訊息。' },
           { heading: '使用目的', body: '這些資料只用於驗證帳戶、驗證電郵、重設密碼、儲存學習進度、產生或儲存你的履歷、提供你要求的功能、回覆查詢，以及維護網站安全和穩定。我們不會要求信用卡號、身分證號、私鑰、助記詞或一次性驗證碼。' },
           { heading: '服務供應商', body: '網站由 Cloudflare 託管頁面、介面、D1 資料庫和 R2 儲存；交易性電郵由 Resend 傳送。若你選擇使用 Google 登入，Google 亦會按其自身政策處理相關登入資料。' },
+          { heading: '廣告與 Cookie', body: '在包含廣告的公開課程或練習頁面上，Google AdSense 等第三方供應商可能使用 Cookie、IP 位址、網路信標或類似識別碼來提供、限制、衡量和改善廣告。Google 及其合作夥伴可能根據你瀏覽本站或其他網站的情況提供個人化廣告；你可以透過 Google 廣告設定管理或關閉個人化廣告。我們不會在登入、註冊、帳戶、履歷、管理、聯絡、法律聲明、錯誤或載入頁面請求 Google 廣告。對依法需要同意的地區，我們會透過 Google 認可的同意管理平台收集並傳遞選擇。' },
           { heading: '聯絡表單與保存期限', body: '聯絡表單的姓名、電郵和訊息會以電郵傳送給客服，用於回覆你的查詢；網站只會短暫保存經雜湊處理的網路識別資料來限制濫用，不會保存表單訊息正文。帳戶資料會在帳戶存續期間保存；你可要求查閱、更正或刪除。' },
           { heading: '聯絡我們', body: '如需隱私、帳戶或資料刪除協助，請聯絡 studyainow@mail.com。' },
         ],
@@ -217,6 +219,7 @@ const copy: Record<AppLocale, PublicInfoCopy> = {
           { heading: 'Information we handle', body: 'When you register or sign in, we handle your display name, email address, encrypted password, verification status, and session. When you use the learning services, we also handle course progress, bookmarks, courses you create, resume information, and contact messages you choose to send.' },
           { heading: 'Why we use it', body: 'We use this information only to authenticate accounts, verify email, reset passwords, save learning progress, generate or save your resume, provide requested features, respond to enquiries, and keep the service secure and reliable. We never ask for card numbers, government ID numbers, private keys, seed phrases, or one-time codes.' },
           { heading: 'Service providers', body: 'Cloudflare hosts our pages, APIs, D1 database, and R2 storage. Resend delivers transactional email. If you choose Google sign-in, Google also handles the relevant sign-in information under its own policy.' },
+          { heading: 'Advertising and cookies', body: 'On public course or practice pages that contain advertising, third-party vendors including Google AdSense may use cookies, IP addresses, web beacons, or similar identifiers to serve, limit, measure, and improve ads. Google and its partners may use advertising cookies to personalize ads based on visits to this or other sites; you can manage or opt out of personalized advertising in Google Ads Settings. We do not request Google ads on login, registration, account, resume, administration, contact, legal, error, or loading pages. Where consent is legally required, choices are collected and transmitted through a Google-certified consent management platform.' },
           { heading: 'Contact form and retention', body: 'Your name, email, and message are sent to support by email so we can reply. To prevent abuse, we retain only a hashed network identifier briefly; we do not store the contact-message body in our database. Account data is retained while your account is active, and you may request access, correction, or deletion.' },
           { heading: 'Contact us', body: 'For privacy, account, or data-deletion assistance, contact studyainow@mail.com.' },
         ],
@@ -289,6 +292,7 @@ const copy: Record<AppLocale, PublicInfoCopy> = {
           { heading: 'Données traitées', body: 'Lors de l’inscription ou de la connexion, nous traitons votre nom affiché, votre adresse e-mail, votre mot de passe chiffré, l’état de vérification et la session. Lors de l’utilisation des services d’apprentissage, nous traitons aussi votre progression, vos favoris, les cours créés, les informations de CV et les messages de contact que vous choisissez d’envoyer.' },
           { heading: 'Finalités', body: 'Ces données servent uniquement à authentifier les comptes, vérifier l’e-mail, réinitialiser les mots de passe, enregistrer la progression, générer ou enregistrer un CV, fournir les fonctions demandées, répondre aux demandes et préserver la sécurité et la fiabilité du service. Nous ne demandons jamais de numéro de carte, numéro d’identité, clé privée, phrase de récupération ou code à usage unique.' },
           { heading: 'Prestataires', body: 'Cloudflare héberge nos pages, API, base D1 et stockage R2. Resend envoie les e-mails transactionnels. Si vous choisissez la connexion Google, Google traite aussi les données de connexion concernées selon sa propre politique.' },
+          { heading: 'Publicité et cookies', body: 'Sur les pages publiques de cours ou d’exercices contenant de la publicité, des fournisseurs tiers, dont Google AdSense, peuvent utiliser des cookies, des adresses IP, des balises web ou des identifiants similaires pour diffuser, limiter, mesurer et améliorer les annonces. Google et ses partenaires peuvent personnaliser les annonces selon les visites de ce site ou d’autres sites ; vous pouvez gérer ou désactiver la personnalisation dans les paramètres des annonces Google. Aucune annonce Google n’est demandée sur les pages de connexion, d’inscription, de compte, de CV, d’administration, de contact, juridiques, d’erreur ou de chargement. Lorsque le consentement est requis, les choix sont recueillis et transmis par une plateforme de gestion du consentement certifiée par Google.' },
           { heading: 'Formulaire de contact et conservation', body: 'Votre nom, e-mail et message sont envoyés au support par e-mail afin que nous puissions répondre. Pour prévenir les abus, nous ne conservons brièvement qu’un identifiant réseau haché ; le contenu du message n’est pas enregistré dans notre base. Les données de compte sont conservées tant que le compte est actif ; vous pouvez demander l’accès, la correction ou la suppression.' },
           { heading: 'Nous contacter', body: 'Pour toute demande liée à la confidentialité, au compte ou à la suppression des données, écrivez à studyainow@mail.com.' },
         ],
@@ -361,6 +365,7 @@ const copy: Record<AppLocale, PublicInfoCopy> = {
           { heading: 'Información que tratamos', body: 'Cuando te registras o inicias sesión, tratamos tu nombre visible, dirección de correo, contraseña cifrada, estado de verificación y sesión. Al usar los servicios de aprendizaje, también tratamos el progreso de cursos, marcadores, cursos que creas, información de CV y los mensajes de contacto que decides enviar.' },
           { heading: 'Para qué la usamos', body: 'Usamos esta información solo para autenticar cuentas, verificar el correo, restablecer contraseñas, guardar el progreso, generar o guardar tu CV, ofrecer las funciones solicitadas, responder consultas y mantener el servicio seguro y fiable. Nunca pedimos números de tarjeta, documentos de identidad, claves privadas, frases semilla ni códigos de un solo uso.' },
           { heading: 'Proveedores de servicio', body: 'Cloudflare aloja nuestras páginas, API, base de datos D1 y almacenamiento R2. Resend entrega correo transaccional. Si eliges iniciar sesión con Google, Google también trata la información de inicio de sesión correspondiente según su propia política.' },
+          { heading: 'Publicidad y cookies', body: 'En las páginas públicas de cursos o ejercicios que contienen publicidad, proveedores externos, incluido Google AdSense, pueden usar cookies, direcciones IP, balizas web o identificadores similares para mostrar, limitar, medir y mejorar los anuncios. Google y sus socios pueden personalizar anuncios según las visitas a este u otros sitios; puedes gestionar o desactivar la publicidad personalizada en la configuración de anuncios de Google. No solicitamos anuncios de Google en páginas de inicio de sesión, registro, cuenta, CV, administración, contacto, avisos legales, error o carga. Cuando la ley exige consentimiento, las opciones se recopilan y transmiten mediante una plataforma de gestión del consentimiento certificada por Google.' },
           { heading: 'Formulario de contacto y conservación', body: 'Tu nombre, correo y mensaje se envían por correo al soporte para que podamos responder. Para prevenir abusos, conservamos brevemente solo un identificador de red con hash; no guardamos el cuerpo del mensaje en nuestra base de datos. Los datos de la cuenta se conservan mientras esté activa, y puedes solicitar acceso, corrección o eliminación.' },
           { heading: 'Contacto', body: 'Para ayuda sobre privacidad, cuenta o eliminación de datos, escribe a studyainow@mail.com.' },
         ],

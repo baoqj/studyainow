@@ -5,16 +5,18 @@ import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { DifficultyLadder } from '../components/interview/DifficultyLadder';
 import { getInterviewCopy, levelDifficultyLabel } from '../data/interviewCopy';
-import { getInterviewLevelPath, getInterviewQuestionPath, getInterviewSet, getInterviewSetStartPath, skillDisplayName } from '../data/interviewContent';
+import { findInterviewSet, getInterviewLevelPath, getInterviewQuestionPath, getInterviewSet, getInterviewSetStartPath, skillDisplayName } from '../data/interviewContent';
 import { useTranslation } from 'react-i18next';
 import type { AppLocale } from '../data/courseContent';
+import { NotFound } from './NotFound';
 
 export function InterviewSetStart() {
   const { setId } = useParams();
   const { t, i18n } = useTranslation();
   const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const copy = getInterviewCopy(locale);
-  const set = getInterviewSet(setId, locale);
+  const matchedSet = findInterviewSet(setId, locale);
+  const set = matchedSet ?? getInterviewSet(undefined, locale);
   const startPath = getInterviewSetStartPath(set);
   const [skillsExpanded, setSkillsExpanded] = useState(false);
   const [skillsExceedTwoRows, setSkillsExceedTwoRows] = useState(false);
@@ -35,6 +37,8 @@ export function InterviewSetStart() {
     observer.observe(element);
     return () => observer.disconnect();
   }, [set.id]);
+
+  if (!matchedSet) return <NotFound />;
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-body-md flex flex-col">
@@ -105,7 +109,12 @@ export function InterviewSetStart() {
 
             <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-sm">
               {set.coverUrl ? (
-                <img src={set.coverUrl} alt={set.title} className="h-72 w-full object-cover" />
+                <>
+                  <img src={set.coverUrl} alt={set.title} className={`h-72 w-full object-cover ${set.coverUrlDark ? 'dark:hidden' : ''}`} />
+                  {set.coverUrlDark && (
+                    <img src={set.coverUrlDark} alt="" aria-hidden="true" className="hidden h-72 w-full object-cover dark:block" />
+                  )}
+                </>
               ) : (
                 <div className="flex h-72 items-center justify-center bg-[linear-gradient(135deg,#102a43,#0ea5a4)]">
                   <Code2 className="h-16 w-16 text-[#f4c95d]/80" aria-hidden="true" />

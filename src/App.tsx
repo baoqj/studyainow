@@ -1,12 +1,16 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { SupportPrompt } from './components/support/SupportPrompt';
 import { RequireAuth } from './components/auth/RequireAuth';
 import { RequireAdmin } from './components/auth/RequireAdmin';
 import { UserLayout } from './components/user/UserLayout';
 import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary';
+import { RouteMetadata } from './components/seo/RouteMetadata';
+import { UserActivityTracker } from './components/analytics/UserActivityTracker';
+import { LocalizedPublicRoute } from './components/seo/LocalizedPublicRoute';
 import { getAccountCopy } from './data/accountCopy';
 import type { AppLocale } from './data/courseCatalog';
+import { isLocalizablePublicPath, localeFromPathname, localizedPublicPath } from './lib/localeRoutes';
 import { useTranslation } from 'react-i18next';
 
 const Catalog = lazy(() => import('./pages/Catalog').then((module) => ({ default: module.Catalog })));
@@ -19,6 +23,8 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword').then((module) =
 const LegalPage = lazy(() => import('./pages/LegalPage').then((module) => ({ default: module.LegalPage })));
 const About = lazy(() => import('./pages/About').then((module) => ({ default: module.About })));
 const Contact = lazy(() => import('./pages/Contact').then((module) => ({ default: module.Contact })));
+const TopicHub = lazy(() => import('./pages/TopicHub').then((module) => ({ default: module.TopicHub })));
+const EditorialPolicy = lazy(() => import('./pages/EditorialPolicy').then((module) => ({ default: module.EditorialPolicy })));
 const Jobs = lazy(() => import('./pages/Jobs').then((module) => ({ default: module.Jobs })));
 const JobDetail = lazy(() => import('./pages/JobDetail').then((module) => ({ default: module.JobDetail })));
 const InterviewCatalog = lazy(() => import('./pages/InterviewCatalog').then((module) => ({ default: module.InterviewCatalog })));
@@ -36,13 +42,19 @@ const UserNotifications = lazy(() => import('./pages/user/UserNotifications').th
 const ProfileBilling = lazy(() => import('./pages/user/ProfileBilling').then((module) => ({ default: module.ProfileBilling })));
 const AdminLayout = lazy(() => import('./components/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })));
 const AdminOverview = lazy(() => import('./pages/admin/AdminOverview').then((module) => ({ default: module.AdminOverview })));
+const AdminEntry = lazy(() => import('./pages/admin/AdminEntry').then((module) => ({ default: module.AdminEntry })));
 const AdminUsers = lazy(() => import('./pages/admin/AdminUsers').then((module) => ({ default: module.AdminUsers })));
+const AdminOrganizations = lazy(() => import('./pages/admin/AdminOrganizations').then((module) => ({ default: module.AdminOrganizations })));
+const AdminOrganizationDetail = lazy(() => import('./pages/admin/AdminOrganizationDetail').then((module) => ({ default: module.AdminOrganizationDetail })));
+const AdminUserDetail = lazy(() => import('./pages/admin/AdminUserDetail').then((module) => ({ default: module.AdminUserDetail })));
 const AdminSystemCourses = lazy(() => import('./pages/admin/AdminSystemCourses').then((module) => ({ default: module.AdminSystemCourses })));
 const AdminCommunityCourses = lazy(() => import('./pages/admin/AdminCommunityCourses').then((module) => ({ default: module.AdminCommunityCourses })));
+const AdminInterviews = lazy(() => import('./pages/admin/AdminInterviews').then((module) => ({ default: module.AdminInterviews })));
 const KnowledgeGraphPreview = lazy(() => import('./pages/admin/KnowledgeGraphPreview').then((module) => ({ default: module.KnowledgeGraphPreview })));
 const AdminJobSources = lazy(() => import('./pages/admin/AdminJobSources').then((module) => ({ default: module.AdminJobSources })));
 const AdminJobs = lazy(() => import('./pages/admin/AdminJobs').then((module) => ({ default: module.AdminJobs })));
 const AdminSettings = lazy(() => import('./pages/admin/Settings').then((module) => ({ default: module.Settings })));
+const NotFound = lazy(() => import('./pages/NotFound').then((module) => ({ default: module.NotFound })));
 
 function RouteLoading() {
   const { i18n } = useTranslation();
@@ -69,8 +81,34 @@ function AppRouteBoundary({ children }: { children: ReactNode }) {
   </RouteErrorBoundary>;
 }
 
+/**
+ * Existing public links remain usable, but once JavaScript is available they
+ * are replaced with the locale-owned URL. This prevents a language chosen in
+ * localStorage from leaving an English/French/Spanish document at /courses.
+ */
+function PublicLocaleCanonicalizer() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { i18n } = useTranslation();
+  const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
+
+  useEffect(() => {
+    if (localeFromPathname(location.pathname) || !isLocalizablePublicPath(location.pathname)) return;
+    navigate({
+      pathname: localizedPublicPath(location.pathname, locale),
+      search: location.search,
+      hash: location.hash,
+    }, { replace: true });
+  }, [i18n.language, locale, location.hash, location.pathname, location.search, navigate]);
+
+  return null;
+}
+
 function AppRoutes() {
   return <AppRouteBoundary>
+    <PublicLocaleCanonicalizer />
+    <RouteMetadata />
+    <UserActivityTracker />
     <SupportPrompt />
     <Suspense fallback={<RouteLoading />}>
       <Routes>
@@ -83,10 +121,16 @@ function AppRoutes() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/admin" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
-          <Route index element={<AdminOverview />} />
+          <Route index element={<AdminEntry />} />
+          <Route path="overview" element={<AdminOverview />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="users/:userId" element={<AdminUserDetail />} />
+          <Route path="organizations" element={<AdminOrganizations />} />
+          <Route path="organizations/:organizationId" element={<AdminOrganizationDetail />} />
+          <Route path="my-organization" element={<AdminOrganizationDetail my />} />
           <Route path="courses" element={<AdminSystemCourses />} />
           <Route path="community-courses" element={<AdminCommunityCourses />} />
+          <Route path="interviews" element={<AdminInterviews />} />
           <Route path="knowledge-graph" element={<KnowledgeGraphPreview />} />
           <Route path="job-sources" element={<AdminJobSources />} />
           <Route path="jobs" element={<AdminJobs />} />
@@ -96,6 +140,8 @@ function AppRoutes() {
         <Route path="/terms" element={<LegalPage type="terms" />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/topics/:topicSlug" element={<TopicHub />} />
+        <Route path="/editorial-policy" element={<EditorialPolicy />} />
         <Route path="/courses/:courseId" element={<CourseStart />} />
         <Route path="/courses/:courseId/chapters/:chapterId" element={<CourseDetail />} />
         <Route path="/courses/:courseId/chapters/:chapterId/lessons/:lessonId" element={<CourseDetail />} />
@@ -126,7 +172,27 @@ function AppRoutes() {
         <Route path="/creator/new" element={<Navigate to="/me/creator/new" replace />} />
         <Route path="/resume" element={<Navigate to="/me/resume" replace />} />
         <Route path="/myjob" element={<Navigate to="/me/job" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+
+        <Route path="/:locale" element={<LocalizedPublicRoute />}>
+          <Route index element={<Catalog />} />
+          <Route path="courses" element={<Catalog />} />
+          <Route path="courses/:courseId" element={<CourseStart />} />
+          <Route path="courses/:courseId/chapters/:chapterId" element={<CourseDetail />} />
+          <Route path="courses/:courseId/chapters/:chapterId/lessons/:lessonId" element={<CourseDetail />} />
+          <Route path="interviews" element={<InterviewCatalog />} />
+          <Route path="interviews/:setId" element={<InterviewSetStart />} />
+          <Route path="interviews/:setId/levels/:levelId" element={<InterviewLevel />} />
+          <Route path="interviews/:setId/levels/:levelId/questions/:questionId" element={<InterviewQuestion />} />
+          <Route path="jobs" element={<Jobs />} />
+          <Route path="jobs/:jobSlug" element={<JobDetail />} />
+          <Route path="privacy" element={<LegalPage type="privacy" />} />
+          <Route path="terms" element={<LegalPage type="terms" />} />
+          <Route path="about" element={<About />} />
+          <Route path="contact" element={<Contact />} />
+          <Route path="topics/:topicSlug" element={<TopicHub />} />
+          <Route path="editorial-policy" element={<EditorialPolicy />} />
+        </Route>
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   </AppRouteBoundary>;

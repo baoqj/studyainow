@@ -6,10 +6,12 @@ import { Footer } from '../components/layout/Footer';
 import { Navbar } from '../components/layout/Navbar';
 import { BookmarkButton } from '../components/jobs/BookmarkButton';
 import { ReturnToCoursesPrompt } from '../components/jobs/ReturnToCoursesPrompt';
-import { getChapterPath, getCourse, getLessonPath, type AppLocale } from '../data/courseContent';
+import type { AppLocale } from '../data/courseCatalog';
+import { getCourseSeoCopy } from '../data/courseSeo';
 import { getJobsCopy, localSkillName } from '../data/jobsCopy';
-import { fetchJob, fetchJobs, type JobDetail as JobDetailData, type JobListItem, type JobRichTextInline } from '../lib/jobs';
+import { fetchJob, fetchJobs, visibleJobSignals, type JobDetail as JobDetailData, type JobListItem, type JobRichTextInline } from '../lib/jobs';
 import { isRegionOnlyLocation, localizeCity, localizeCountry } from '../../shared/jobLocations';
+import { localizedPublicPath } from '../lib/localeRoutes';
 
 const dateLocale: Record<AppLocale, string> = { 'zh-CN': 'zh-CN', 'zh-TW': 'zh-TW', en: 'en-CA', fr: 'fr-CA', es: 'es-ES' };
 
@@ -48,81 +50,6 @@ const mobileSkillPanelLabels: Record<AppLocale, { close: string }> = {
   en: { close: 'Close skill panel' },
   fr: { close: 'Fermer le panneau de compétences' },
   es: { close: 'Cerrar el panel de habilidades' },
-};
-
-// The practice-course source files are currently authored in Simplified
-// Chinese. The job sidebar must never leak those source labels into a
-// different interface locale, so it uses this compact translated course index
-// until every source lesson has a full content translation.
-const localizedPracticeCourseTitles: Partial<Record<AppLocale, Record<string, string>>> = {
-  'zh-TW': {
-    'ai-learning-orientation': 'AI 學習入門與能力定位',
-    'llm-core-principles': '大型語言模型核心原理',
-    'agent-engineering': 'Agent 工程實戰',
-    'hallucination-mitigation': 'AI 幻覺分析與治理',
-    'ai-literacy-and-boundaries': 'AI 素養：能力、界線與正確期待',
-    'chat-completion-systems': '從補全到對話系統',
-    'ai-beginner-question-map': 'AI 新手問題地圖',
-    'prompt-engineering-production': '生產級 Prompt 工程',
-    'llm-cost-model-selection': '大型語言模型成本最佳化與選型',
-    'context-engineering': '上下文工程實戰',
-    'prompt-security': 'Prompt 安全與注入防禦',
-    'ai-image-production': 'AI 圖像生成與產品化',
-    'communicating-with-ai': '高效與 AI 溝通',
-    'agent-loop-control': 'Agent Loop 控制與復原',
-    'agent-design-patterns': 'Agent 設計模式與架構選型',
-  },
-  en: {
-    'ai-learning-orientation': 'AI Learning Foundations and Capability Planning',
-    'llm-core-principles': 'Core Principles of Large Language Models',
-    'agent-engineering': 'Practical Agent Engineering',
-    'hallucination-mitigation': 'AI Hallucination Analysis and Governance',
-    'ai-literacy-and-boundaries': 'AI Literacy: Capabilities, Boundaries, and Expectations',
-    'chat-completion-systems': 'From Completion to Conversational Systems',
-    'ai-beginner-question-map': 'AI Beginner Question Map',
-    'prompt-engineering-production': 'Production Prompt Engineering',
-    'llm-cost-model-selection': 'LLM Cost Optimisation and Model Selection',
-    'context-engineering': 'Practical Context Engineering',
-    'prompt-security': 'Prompt Security and Injection Defence',
-    'ai-image-production': 'AI Image Generation and Productisation',
-    'communicating-with-ai': 'Communicating Effectively with AI',
-    'agent-loop-control': 'Agent Loop Control and Recovery',
-    'agent-design-patterns': 'Agent Design Patterns and Architecture Selection',
-  },
-  fr: {
-    'ai-learning-orientation': 'Fondamentaux de l’apprentissage de l’IA et positionnement',
-    'llm-core-principles': 'Principes fondamentaux des grands modèles de langage',
-    'agent-engineering': 'Ingénierie pratique des agents',
-    'hallucination-mitigation': 'Analyse et gouvernance des hallucinations de l’IA',
-    'ai-literacy-and-boundaries': 'Culture IA : capacités, limites et attentes justes',
-    'chat-completion-systems': 'De la complétion aux systèmes conversationnels',
-    'ai-beginner-question-map': 'Carte des questions pour débuter avec l’IA',
-    'prompt-engineering-production': 'Ingénierie de prompts pour la production',
-    'llm-cost-model-selection': 'Optimisation des coûts et choix des modèles LLM',
-    'context-engineering': 'Ingénierie du contexte en pratique',
-    'prompt-security': 'Sécurité des prompts et défense contre les injections',
-    'ai-image-production': 'Génération d’images par IA et mise en production',
-    'communicating-with-ai': 'Communiquer efficacement avec l’IA',
-    'agent-loop-control': 'Contrôle et reprise des boucles d’agents',
-    'agent-design-patterns': 'Patrons d’agents et choix d’architecture',
-  },
-  es: {
-    'ai-learning-orientation': 'Fundamentos de aprendizaje de IA y orientación de capacidades',
-    'llm-core-principles': 'Principios fundamentales de los modelos de lenguaje grandes',
-    'agent-engineering': 'Ingeniería práctica de agentes',
-    'hallucination-mitigation': 'Análisis y gestión de las alucinaciones de IA',
-    'ai-literacy-and-boundaries': 'Alfabetización en IA: capacidades, límites y expectativas',
-    'chat-completion-systems': 'De la finalización a los sistemas conversacionales',
-    'ai-beginner-question-map': 'Mapa de preguntas para principiantes de IA',
-    'prompt-engineering-production': 'Ingeniería de prompts para producción',
-    'llm-cost-model-selection': 'Optimización de costes y selección de modelos LLM',
-    'context-engineering': 'Ingeniería de contexto práctica',
-    'prompt-security': 'Seguridad de prompts y defensa ante inyecciones',
-    'ai-image-production': 'Generación de imágenes con IA y producción',
-    'communicating-with-ai': 'Comunicación eficaz con IA',
-    'agent-loop-control': 'Control y recuperación del bucle de agentes',
-    'agent-design-patterns': 'Patrones de agentes y selección de arquitectura',
-  },
 };
 
 const localizedSkillCategories: Record<string, Partial<Record<AppLocale, string>>> = {
@@ -253,20 +180,16 @@ function richSectionContent(section: JobDetailData['sections'][number], activeSk
 }
 
 function coursePath(courseId: string, chapterRouteId: string, lessonRouteId: string | null, locale: AppLocale) {
-  const course = getCourse(courseId, locale);
-  const chapter = course.chapters.find((item) => item.routeId === chapterRouteId);
-  const lesson = chapter?.lessons.find((item) => item.routeId === lessonRouteId);
-  const path = lesson ? getLessonPath(course.id, lesson) : chapter ? getChapterPath(course.id, chapter) : `/courses/${courseId}`;
-  const rawLabel = lesson?.title || chapter?.title || course.title;
-  const courseTitle = localizedPracticeCourseTitles[locale]?.[courseId]
-    ?? (!locale.startsWith('zh') && containsHan(course.title) ? courseId.replace(/-/g, ' ') : course.title);
-  const chapterNumber = chapter?.chapter ?? Number.parseInt(chapterRouteId, 10);
-  const lessonNumber = lesson?.lesson ?? Number.parseInt(lessonRouteId?.match(/(\d+)$/)?.[1] ?? '', 10);
+  const path = lessonRouteId
+    ? localizedPublicPath(`/courses/${courseId}/chapters/${chapterRouteId}/lessons/${lessonRouteId}`, locale)
+    : localizedPublicPath(`/courses/${courseId}/chapters/${chapterRouteId}`, locale);
+  const courseTitle = getCourseSeoCopy(courseId, locale)?.title ?? courseId.replace(/-/g, ' ');
+  const chapterNumber = Number.parseInt(chapterRouteId, 10);
+  const lessonNumber = Number.parseInt(lessonRouteId?.match(/(\d+)$/)?.[1] ?? '', 10);
   const lessonFallback = panelLabels[locale].lesson
     .replace('{chapter}', Number.isFinite(chapterNumber) ? String(chapterNumber) : chapterRouteId)
     .replace('{lesson}', Number.isFinite(lessonNumber) ? String(lessonNumber) : lessonRouteId ?? '');
-  const label = locale !== 'zh-CN' && containsHan(rawLabel) ? lessonFallback : rawLabel;
-  return { path, label, courseTitle };
+  return { path, label: lessonFallback, courseTitle };
 }
 
 function MobileSkillDrawer({ open, onClose, locale, children }: { open: boolean; onClose: () => void; locale: AppLocale; children: ReactNode }) {
@@ -417,6 +340,7 @@ export function JobDetail() {
   }, [activeSkill]);
 
   const activeSkillData = useMemo(() => data?.skills.find((skill) => skill.id === activeSkill) ?? null, [activeSkill, data]);
+  const semanticSignals = useMemo(() => visibleJobSignals(data?.job.tags ?? []), [data?.job.tags]);
 
   function updateBookmark(bookmarked: boolean) {
     setData((current) => current ? { ...current, job: { ...current.job, bookmarked } } : current);
@@ -448,6 +372,17 @@ export function JobDetail() {
 
   if (loading) return <div className="min-h-screen bg-background"><Navbar onBrandClick={() => setIsCourseReturnPromptOpen(true)} brandClickLabel={copy.returnToCoursesTitle} /><ReturnToCoursesPrompt open={isCourseReturnPromptOpen} title={copy.returnToCoursesTitle} body={copy.returnToCoursesBody} confirmLabel={copy.confirm} cancelLabel={copy.cancel} onConfirm={() => navigate('/')} onCancel={() => setIsCourseReturnPromptOpen(false)} /><main className="pt-32 text-center text-on-surface-variant">{copy.loading}</main></div>;
   if (error || !data) return <div className="min-h-screen bg-background"><Navbar onBrandClick={() => setIsCourseReturnPromptOpen(true)} brandClickLabel={copy.returnToCoursesTitle} /><ReturnToCoursesPrompt open={isCourseReturnPromptOpen} title={copy.returnToCoursesTitle} body={copy.returnToCoursesBody} confirmLabel={copy.confirm} cancelLabel={copy.cancel} onConfirm={() => navigate('/')} onCancel={() => setIsCourseReturnPromptOpen(false)} /><main className="pt-32 text-center"><p className="text-on-surface-variant">{error || copy.loadError}</p><Link to="/jobs" className="mt-5 inline-flex rounded-lg bg-primary px-4 py-2 text-on-primary">{copy.backToJobs}</Link></main></div>;
+
+  const descriptionBadge = data.job.displayPolicy === 'excerpt'
+    ? copy.sourceExcerptText
+    : data.job.displayPolicy === 'metadata_only'
+      ? copy.metadataOnlyText
+      : copy.originalSourceText;
+  const sourcePolicyNotice = data.job.displayPolicy === 'excerpt'
+    ? copy.sourceExcerptNotice
+    : data.job.displayPolicy === 'metadata_only'
+      ? copy.metadataOnlyNotice
+      : copy.sourceNotice;
 
   return (
     <div className="flex min-h-screen flex-col bg-background font-body-md text-on-surface lg:h-dvh lg:overflow-hidden">
@@ -511,9 +446,10 @@ export function JobDetail() {
                     {data.job.applyUrl && <a href={data.job.applyUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-on-primary transition hover:bg-primary/90 sm:px-4 sm:text-sm"><ArrowUpRight className="h-4 w-4 shrink-0" />{copy.apply}</a>}
                   </div>
                 </div>
-                <div className="mt-6 flex flex-wrap items-center gap-2"><h2 className="text-xl font-bold">{copy.jobDescription}</h2><span className="rounded-full border border-primary/25 bg-primary-container/40 px-2 py-0.5 text-xs font-medium text-primary">{copy.originalSourceText}{data.job.language && data.job.language !== 'und' ? ` · ${data.job.language}` : ''}</span></div>
+                <div className="mt-6 flex flex-wrap items-center gap-2"><h2 className="text-xl font-bold">{copy.jobDescription}</h2><span className="rounded-full border border-primary/25 bg-primary-container/40 px-2 py-0.5 text-xs font-medium text-primary">{descriptionBadge}{data.job.language && data.job.language !== 'und' ? ` · ${data.job.language}` : ''}</span></div>
                 {data.sections.length ? data.sections.map((section) => <div key={section.id} className="mt-6"><h3 className="text-sm font-bold uppercase tracking-wide text-on-surface-variant">{section.title || copy.jobDescription}</h3>{richSectionContent(section, activeSkill, selectSkill)}</div>) : <p className="mt-5 leading-relaxed text-on-surface-variant">{copy.noDescription}</p>}
-                <p className="mt-7 border-y border-outline-variant py-3 text-sm leading-relaxed text-on-surface-variant"><span className="font-semibold text-on-surface">{copy.source}: </span>{copy.sourceNotice}</p>
+                {semanticSignals.length > 0 && <section className="mt-7 border-t border-outline-variant pt-5"><h3 className="text-sm font-bold text-on-surface">{copy.extractedSignals}</h3><div className="mt-3 flex flex-wrap gap-2">{semanticSignals.map((tag) => <span key={`${tag.type}-${tag.key}`} className="rounded-full border border-outline-variant bg-surface-container-low px-2.5 py-1 text-xs font-medium text-on-surface">{tag.label}</span>)}</div></section>}
+                <p className="mt-7 border-y border-outline-variant py-3 text-sm leading-relaxed text-on-surface-variant"><span className="font-semibold text-on-surface">{copy.source}: </span>{sourcePolicyNotice}</p>
               </div>
             </section>
           </article>
@@ -561,7 +497,7 @@ export function JobDetail() {
                     </div>
                   </section>;
                 })}
-                {!data.skills.length && <p className="py-5 text-sm text-on-surface-variant">{copy.noDescription}</p>}
+                {!data.skills.length && <div className="py-5"><p className="text-sm leading-relaxed text-on-surface-variant">{semanticSignals.length ? copy.semanticSignalsNotice : copy.noDescription}</p>{semanticSignals.length > 0 && <div className="mt-4 flex flex-wrap gap-2">{semanticSignals.map((tag) => <span key={`${tag.type}-${tag.key}`} className="rounded-full border border-primary/30 bg-primary-container/30 px-2.5 py-1 text-xs font-medium text-primary">{tag.label}</span>)}</div>}</div>}
               </div>
             </section>
           </aside>

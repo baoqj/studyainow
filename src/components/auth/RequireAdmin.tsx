@@ -14,7 +14,7 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
       .then((payload) => {
         if (!active) return;
         if (!payload.user) setState('signed_out');
-        else setState(payload.user.roles?.includes('admin') ? 'allowed' : 'forbidden');
+        else setState(payload.user.roles?.some((role) => role === 'admin' || role === 'leader') ? 'allowed' : 'forbidden');
       })
       .catch(() => active && setState('signed_out'));
     return () => { active = false; };

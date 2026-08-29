@@ -1,12 +1,12 @@
-import { requireAdmin } from '../../../_lib/auth';
 import { clampInt, errorResponse, json } from '../../../_lib/http';
+import { requireAdminOrLeader } from '../../../_lib/organizations';
 
 export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
   try {
-    await requireAdmin(env.DB, request);
+    const actor = await requireAdminOrLeader(env.DB, request);
     const url = new URL(request.url);
     const requestedStatus = url.searchParams.get('status') ?? 'needs_review';
-    const status = ['draft', 'normalized', 'needs_review', 'approved', 'published', 'possibly_expired', 'expired', 'closed', 'archived', 'rejected'].includes(requestedStatus)
+    const status = !actor.isAdmin ? 'published' : ['draft', 'normalized', 'needs_review', 'approved', 'published', 'possibly_expired', 'expired', 'closed', 'archived', 'rejected'].includes(requestedStatus)
       ? requestedStatus
       : 'needs_review';
     const limit = clampInt(url.searchParams.get('limit'), 1, 100, 50);
@@ -30,7 +30,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env, request }) => {
        WHERE job_postings.status = ?
        ORDER BY COALESCE(job_postings.source_published_at, job_postings.collected_at) DESC, job_postings.title ASC LIMIT ?`,
     ).bind(status, limit).all();
-    return json({ jobs: jobs.results, status });
+    return json({ jobs: jobs.results, status, readOnly: !actor.isAdmin });
   } catch (error) {
     return errorResponse(error);
   }

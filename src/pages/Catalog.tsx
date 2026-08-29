@@ -9,13 +9,14 @@ import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getCatalogCourseStartPath, getCatalogCourses, type AppLocale, type CourseAccess, type CourseDifficulty } from '../data/courseCatalog';
+import { localizedPublicPath } from '../lib/localeRoutes';
 
 export function Catalog() {
   const { t, i18n } = useTranslation();
   const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const catalogCourses = getCatalogCourses(locale);
   const claudeCodeCourse = catalogCourses.find((course) => course.id === 'claude-code-guide') ?? catalogCourses[0];
-  const continuePath = claudeCodeCourse ? getCatalogCourseStartPath(claudeCodeCourse) : '/courses';
+  const continuePath = claudeCodeCourse ? getCatalogCourseStartPath(claudeCodeCourse, locale) : localizedPublicPath('/', locale);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedDifficulties, setSelectedDifficulties] = useState<CourseDifficulty[]>([]);
   const [selectedAccess, setSelectedAccess] = useState<CourseAccess[]>([]);

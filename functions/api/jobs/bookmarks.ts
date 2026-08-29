@@ -1,7 +1,9 @@
 import { requireUser } from '../../_lib/auth';
 import { errorResponse, json } from '../../_lib/http';
+import { loadPublicJobTags } from '../../_lib/jobTags';
 
 type BookmarkJobRow = {
+  current_version_id: string;
   slug: string;
   title: string;
   company_name: string;
@@ -11,7 +13,10 @@ type BookmarkJobRow = {
   employment_type: string | null;
   status: string;
   source_published_at: string | null;
+  source_updated_at: string | null;
   collected_at: string | null;
+  first_collected_at: string | null;
+  last_seen_at: string | null;
   suspected_expired_at: string | null;
   skill_count: number;
   primary_skill_name_zh: string | null;
@@ -26,9 +31,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const user = await requireUser(env.DB, request);
     const jobs = await env.DB.prepare(
-      `SELECT job_postings.slug, job_postings.title, companies.name AS company_name, companies.slug AS company_slug,
+      `SELECT job_postings.current_version_id, job_postings.slug, job_postings.title,
+              companies.name AS company_name, companies.slug AS company_slug,
               job_postings.location_text, job_postings.remote_type, job_postings.employment_type, job_postings.status,
-              job_postings.source_published_at, job_postings.collected_at, job_postings.suspected_expired_at,
+              job_postings.source_published_at, job_postings.source_updated_at, job_postings.collected_at,
+              job_postings.first_collected_at, job_postings.last_seen_at, job_postings.suspected_expired_at,
               (SELECT country_code FROM job_locations primary_location
                 WHERE primary_location.job_id = job_postings.id AND primary_location.version_id = job_postings.current_version_id
                 ORDER BY (primary_location.country_code IS NOT NULL) DESC, primary_location.is_primary DESC, primary_location.confidence DESC, primary_location.created_at ASC LIMIT 1) AS country_code,
@@ -64,6 +71,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
        GROUP BY job_postings.id
        ORDER BY user_job_bookmarks.created_at DESC`,
     ).bind(user.id).all<BookmarkJobRow>();
+    const tagsByVersion = await loadPublicJobTags(env.DB, jobs.results.map((job) => job.current_version_id));
 
     return json({ jobs: jobs.results.map((job) => ({
       slug: job.slug,
@@ -80,8 +88,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       employmentType: job.employment_type,
       status: job.status,
       publishedAt: job.source_published_at ?? job.collected_at,
+      sourceUpdatedAt: job.source_updated_at,
+      firstCollectedAt: job.first_collected_at,
       collectedAt: job.collected_at,
+      lastSeenAt: job.last_seen_at,
       suspectedExpiredAt: job.suspected_expired_at,
+      tags: tagsByVersion.get(job.current_version_id) ?? [],
       skillCount: Number(job.skill_count ?? 0),
       primarySkill: job.primary_skill_name_en ? { zh: job.primary_skill_name_zh, en: job.primary_skill_name_en } : null,
       bookmarked: true,

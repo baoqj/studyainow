@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://studyai.now/zh-cn</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/about</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/about" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/about" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/about" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/editorial-policy</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/editorial-policy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/editorial-policy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/editorial-policy" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/privacy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/privacy" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/terms</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/terms" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/terms" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/terms" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/topics/claude-code</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/topics/claude-code" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/topics/claude-code" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/topics/claude-code" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/topics/openai-codex</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/topics/openai-codex" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/topics/openai-codex" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/topics/openai-codex" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/topics/agent-engineering</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/topics/agent-engineering" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/topics/agent-engineering" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/topics/agent-engineering" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/topics/fde-career</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/topics/fde-career" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/topics/fde-career" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/topics/fde-career" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/about</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/about" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/about" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/about" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/editorial-policy</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/editorial-policy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/editorial-policy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/editorial-policy" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/privacy</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/privacy" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/privacy" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/terms</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/terms" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/terms" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/terms" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/topics/claude-code</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/topics/claude-code" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/topics/claude-code" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/topics/claude-code" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/topics/openai-codex</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/topics/openai-codex" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/topics/openai-codex" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/topics/openai-codex" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/topics/agent-engineering</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/topics/agent-engineering" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/topics/agent-engineering" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/topics/agent-engineering" />
+  </url>
+  <url>
+    <loc>https://studyai.now/en/topics/fde-career</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/topics/fde-career" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/topics/fde-career" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/topics/fde-career" />
+  </url>
+</urlset>

@@ -4,6 +4,10 @@ interface Env {
   DB: D1Database;
   COURSE_STORAGE: R2Bucket;
   ASSETS: Fetcher;
+  /** Multilingual job-description analysis and embeddings via Workers AI. */
+  AI?: Ai;
+  /** One current semantic vector per collected job. */
+  JOB_VECTORS?: Vectorize;
   APP_ORIGIN?: string;
   CF_PAGES_BRANCH?: string;
   /** Primary production secret configured in Cloudflare Workers. */
@@ -43,6 +47,10 @@ interface Env {
   KIMI_API_KEY?: string;
   LLM_DEEPSEEK_API?: string;
   LLM_MEGANOVA_API?: string;
+  /** Private build endpoint credential for Course/15 locale rewrites. */
+  CURRICULUM_LOCALIZATION_TOKEN?: string;
+  CURRICULUM_DEEPSEEK_MODEL?: string;
+  CURRICULUM_MEGANOVA_MODEL?: string;
   SKILL_GRAPH_DEEPSEEK_MODEL?: string;
   SKILL_GRAPH_MEGANOVA_MODEL?: string;
   // Resume extraction uses DeepSeek first. When fewer than ten reviewable

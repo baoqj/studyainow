@@ -37,6 +37,16 @@ export function LegalPage({ type }: LegalPageProps) {
               <p className="mt-3 text-base leading-8 text-on-surface-variant">{section.body}</p>
             </article>
           ))}
+          {type === 'privacy' && (
+            <aside className="rounded-xl border border-primary/25 bg-primary-container/20 p-6">
+              <h2 className="text-xl font-black tracking-tight text-on-surface">Google advertising resources</h2>
+              <ul className="mt-3 space-y-2 text-sm leading-6">
+                <li><a className="font-semibold text-primary hover:underline" href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">How Google uses information from partner sites</a></li>
+                <li><a className="font-semibold text-primary hover:underline" href="https://adssettings.google.com/" target="_blank" rel="noopener noreferrer">Google Ads Settings</a></li>
+                <li><a className="font-semibold text-primary hover:underline" href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a></li>
+              </ul>
+            </aside>
+          )}
         </section>
       </main>
       <Footer />

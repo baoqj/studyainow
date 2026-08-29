@@ -13,6 +13,9 @@ export interface AuthUser {
   status: string;
   email_verified_at: string | null;
   avatar_url: string | null;
+  organization_id: string | null;
+  organization_role: string | null;
+  organization_joined_at: string | null;
   roles: string[];
 }
 
@@ -109,8 +112,9 @@ export async function getAuthUser(db: D1Database, request: Request): Promise<Aut
   const tokenHash = await sha256Base64Url(token);
   const row = await db
     .prepare(
-      `SELECT users.id, users.email, users.display_name, users.status
-              , users.username, users.email_verified_at, users.avatar_url
+      `SELECT users.id, users.email, users.display_name, users.status,
+              users.username, users.email_verified_at, users.avatar_url,
+              users.organization_id, users.organization_role, users.organization_joined_at
        FROM sessions
        JOIN users ON users.id = sessions.user_id
        WHERE sessions.token_hash = ?
@@ -129,8 +133,16 @@ export async function getAuthUser(db: D1Database, request: Request): Promise<Aut
     .run();
 
   const roles = await db
-    .prepare('SELECT role FROM user_roles WHERE user_id = ?')
-    .bind(row.id)
+    .prepare(
+      `SELECT user_roles.role FROM user_roles
+       WHERE user_roles.user_id = ?
+         AND (user_roles.role <> 'leader' OR EXISTS (
+           SELECT 1 FROM organizations
+           WHERE organizations.id = ? AND organizations.status = 'active'
+             AND organizations.leader_user_id = user_roles.user_id
+         ))`,
+    )
+    .bind(row.id, row.organization_id)
     .all<{ role: string }>();
 
   return {

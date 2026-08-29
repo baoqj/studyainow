@@ -2,6 +2,9 @@
  * Catalogue-only data. Keep this file intentionally compact: detailed
  * outlines and lesson Markdown belong to the lazy courseContent route chunk.
  */
+import { getCourseSeoCopy } from './courseSeo';
+import { localizedPublicPath } from '../lib/localeRoutes';
+
 export const supportedLocales = ['zh-CN', 'zh-TW', 'en', 'fr', 'es'] as const;
 export type AppLocale = (typeof supportedLocales)[number];
 export type CourseDifficulty = 'Beginner' | 'Intermediate' | 'Advanced';
@@ -207,7 +210,10 @@ export function getCatalogCourses(locale: AppLocale = 'zh-CN') {
   }));
   const ai: CatalogCourse[] = aiSeeds.map((seed) => ({
     ...seed,
-    topic: topicFor(seed.topic, locale),
+    title: getCourseSeoCopy(seed.id, locale)?.title ?? seed.title,
+    subtitle: getCourseSeoCopy(seed.id, locale)?.subtitle ?? seed.subtitle,
+    description: getCourseSeoCopy(seed.id, locale)?.description ?? seed.description,
+    topic: getCourseSeoCopy(seed.id, locale)?.topic ?? topicFor(seed.topic, locale),
     lessons: aiLessonRouteIds.length,
     chapters: 10,
     status: publishedLabel[locale],
@@ -239,10 +245,12 @@ export function getCatalogCourse(courseId: string, locale: AppLocale = 'zh-CN') 
   return getCatalogCourses(locale).find((course) => course.id === courseId);
 }
 
-export function getCatalogCourseStartPath(course: Pick<CatalogCourse, 'id'>) {
-  return `/courses/${encodeURIComponent(course.id)}`;
+export function getCatalogCourseStartPath(course: Pick<CatalogCourse, 'id'>, locale?: AppLocale) {
+  const path = `/courses/${encodeURIComponent(course.id)}`;
+  return locale ? localizedPublicPath(path, locale) : path;
 }
 
-export function getCatalogLessonPath(courseId: string, chapterNumber: number, lessonRouteId: string) {
-  return `/courses/${encodeURIComponent(courseId)}/chapters/${encodeURIComponent(String(chapterNumber))}/lessons/${encodeURIComponent(lessonRouteId)}`;
+export function getCatalogLessonPath(courseId: string, chapterNumber: number, lessonRouteId: string, locale?: AppLocale) {
+  const path = `/courses/${encodeURIComponent(courseId)}/chapters/${encodeURIComponent(String(chapterNumber))}/lessons/${encodeURIComponent(lessonRouteId)}`;
+  return locale ? localizedPublicPath(path, locale) : path;
 }

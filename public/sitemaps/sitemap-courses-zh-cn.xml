@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/claude-code-guide</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/claude-code-guide" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/courses/claude-code-guide" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/claude-code-guide" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/hermes-agent-guide</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/hermes-agent-guide" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/courses/hermes-agent-guide" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/hermes-agent-guide" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/codex-tutorial</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/codex-tutorial" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/courses/codex-tutorial" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/codex-tutorial" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/forward-deployed-engineering</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/forward-deployed-engineering" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://studyai.now/en/courses/forward-deployed-engineering" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/forward-deployed-engineering" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/ai-learning-orientation</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/ai-learning-orientation" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/ai-learning-orientation" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/llm-core-principles</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/llm-core-principles" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/llm-core-principles" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/agent-engineering</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/agent-engineering" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/agent-engineering" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/hallucination-mitigation</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/hallucination-mitigation" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/hallucination-mitigation" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/ai-literacy-and-boundaries</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/ai-literacy-and-boundaries" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/ai-literacy-and-boundaries" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/chat-completion-systems</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/chat-completion-systems" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/chat-completion-systems" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/ai-beginner-question-map</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/ai-beginner-question-map" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/ai-beginner-question-map" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/prompt-engineering-production</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/prompt-engineering-production" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/prompt-engineering-production" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/llm-cost-model-selection</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/llm-cost-model-selection" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/llm-cost-model-selection" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/context-engineering</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/context-engineering" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/context-engineering" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/prompt-security</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/prompt-security" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/prompt-security" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/ai-image-production</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/ai-image-production" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/ai-image-production" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/communicating-with-ai</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/communicating-with-ai" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/communicating-with-ai" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/agent-loop-control</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/agent-loop-control" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/agent-loop-control" />
+  </url>
+  <url>
+    <loc>https://studyai.now/zh-cn/courses/agent-design-patterns</loc>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://studyai.now/zh-cn/courses/agent-design-patterns" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://studyai.now/zh-cn/courses/agent-design-patterns" />
+  </url>
+</urlset>

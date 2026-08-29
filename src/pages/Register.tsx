@@ -1,6 +1,6 @@
-import { FormEvent, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Chrome, Lock, Mail, UserRound } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Building2, Chrome, Lock, Mail, UserRound } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Navbar } from '../components/layout/Navbar';
 import { BrandWordmark } from '../components/brand/BrandWordmark';
@@ -13,11 +13,19 @@ interface RegisterResponse {
     reason?: string;
     verification_url?: string;
   };
+  invitation?: {
+    joined?: boolean;
+    organization_name?: string;
+    message?: string;
+  };
   error?: string;
 }
 
+type InviteValidation = { valid: boolean; organization?: { name: string }; message?: string };
+
 export function Register() {
   const { t, i18n } = useTranslation();
+  const [searchParams] = useSearchParams();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,6 +33,38 @@ export function Register() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RegisterResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [invite, setInvite] = useState(() => searchParams.get('invite') ?? '');
+  const [inviteResult, setInviteResult] = useState<InviteValidation | null>(null);
+  const [checkingInvite, setCheckingInvite] = useState(false);
+
+  async function validateInvite(rawCode = invite) {
+    const code = rawCode.trim();
+    if (!code) {
+      setInviteResult(null);
+      return;
+    }
+    setCheckingInvite(true);
+    try {
+      const response = await fetch('/api/auth/invites/validate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ invite: code }),
+      });
+      const data = await response.json().catch(() => ({})) as InviteValidation & { error?: string };
+      setInviteResult(response.ok ? data : { valid: false, message: data.error ?? '邀请码暂时无法验证。' });
+    } catch {
+      setInviteResult({ valid: false, message: '邀请码暂时无法验证。' });
+    } finally {
+      setCheckingInvite(false);
+    }
+  }
+
+  useEffect(() => {
+    const code = searchParams.get('invite');
+    if (code) void validateInvite(code);
+    // The invitation URL is the only auto-validation trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -36,7 +76,7 @@ export function Register() {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ username, email, password, passwordConfirm, locale: i18n.resolvedLanguage ?? i18n.language }),
+        body: JSON.stringify({ username, email, password, passwordConfirm, invite: invite.trim() || undefined, locale: i18n.resolvedLanguage ?? i18n.language }),
       });
       const data = (await response.json().catch(() => ({}))) as RegisterResponse;
 
@@ -77,6 +117,29 @@ export function Register() {
                 autoComplete="username"
               />
             </div>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium">组织邀请码（选填）</span>
+            <div className="flex gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-outline" />
+                <input
+                  value={invite}
+                  onChange={(event) => { setInvite(event.target.value); setInviteResult(null); }}
+                  className="w-full rounded-lg border border-outline-variant bg-surface-container-low py-3 pl-10 pr-4 text-sm uppercase outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="INV-..."
+                  autoComplete="off"
+                />
+              </div>
+              <button type="button" disabled={checkingInvite || !invite.trim()} onClick={() => void validateInvite()} className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm font-medium text-primary disabled:opacity-50">
+                {checkingInvite ? '验证中' : '验证'}
+              </button>
+            </div>
+            {inviteResult && (
+              <p className={`mt-2 text-sm ${inviteResult.valid ? 'text-emerald-700' : 'text-amber-700'}`}>
+                {inviteResult.valid ? `将加入：${inviteResult.organization?.name ?? ''}` : inviteResult.message}
+              </p>
+            )}
           </label>
           <label className="block">
             <span className="mb-1.5 block text-sm font-medium">{t('Registration email')}</span>
@@ -123,6 +186,8 @@ export function Register() {
           {result?.ok && (
             <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
               <p>{t('Registration successful. Please check {{email}} for the verification email.', { email: result.email ?? email })}</p>
+              {result.invitation?.joined && <p className="mt-2 font-medium">已加入组织：{result.invitation.organization_name}</p>}
+              {result.invitation && !result.invitation.joined && <p className="mt-2 text-amber-800">{result.invitation.message}</p>}
               {result.email_result?.verification_url && (
                 <a className="mt-2 block break-all font-medium text-primary" href={result.email_result.verification_url}>
                   {t('Open development verification link')}
@@ -141,7 +206,7 @@ export function Register() {
 
         <a
           className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-outline-variant px-5 py-3 text-sm font-medium hover:bg-surface-container-low"
-          href="/api/auth/google/start"
+          href={`/api/auth/google/start${invite.trim() ? `?invite=${encodeURIComponent(invite.trim())}` : ''}`}
         >
           <Chrome className="h-4 w-4" />
           {t('Continue with Google')}
@@ -153,6 +218,7 @@ export function Register() {
             {t('Go to login')}
           </Link>
         </p>
+        <p className="mt-5 text-center text-xs leading-5 text-on-surface-variant">邀请码仅用于加入所属组织，不影响你的普通注册、学习功能和个人资料。</p>
       </div>
       </main>
     </div>

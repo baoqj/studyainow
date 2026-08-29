@@ -23,7 +23,7 @@ export function safeRedirectPath(value: string | null | undefined, fallback = '/
   return value;
 }
 
-export async function createGoogleAuthUrl(env: Env, request: Request, redirectTo = '/me') {
+export async function createGoogleAuthUrl(env: Env, request: Request, redirectTo = '/me', organizationInviteId?: string | null) {
   if (!env.GOOGLE_CLIENT_ID) {
     throw new ApiError(503, 'Google OAuth is not configured');
   }
@@ -34,10 +34,10 @@ export async function createGoogleAuthUrl(env: Env, request: Request, redirectTo
 
   await env.DB
     .prepare(
-      `INSERT INTO oauth_states (id, provider, state_hash, redirect_to, expires_at)
-       VALUES (?, 'google', ?, ?, ?)`,
+      `INSERT INTO oauth_states (id, provider, state_hash, redirect_to, organization_invite_id, expires_at)
+       VALUES (?, 'google', ?, ?, ?, ?)`,
     )
-    .bind(crypto.randomUUID(), stateHash, safeRedirectPath(redirectTo), expiresAt)
+    .bind(crypto.randomUUID(), stateHash, safeRedirectPath(redirectTo), organizationInviteId ?? null, expiresAt)
     .run();
 
   const url = new URL(GOOGLE_AUTH_URL);
@@ -56,7 +56,7 @@ export async function consumeOAuthState(db: D1Database, state: string) {
   const stateHash = await sha256Base64Url(state);
   const row = await db
     .prepare(
-      `SELECT id, redirect_to
+      `SELECT id, redirect_to, organization_invite_id
        FROM oauth_states
        WHERE provider = 'google'
          AND state_hash = ?
@@ -64,14 +64,14 @@ export async function consumeOAuthState(db: D1Database, state: string) {
          AND expires_at > CURRENT_TIMESTAMP`,
     )
     .bind(stateHash)
-    .first<{ id: string; redirect_to: string }>();
+    .first<{ id: string; redirect_to: string; organization_invite_id: string | null }>();
 
   if (!row) {
     throw new ApiError(400, 'Invalid or expired OAuth state');
   }
 
   await db.prepare('UPDATE oauth_states SET consumed_at = CURRENT_TIMESTAMP WHERE id = ?').bind(row.id).run();
-  return row.redirect_to;
+  return { redirectTo: row.redirect_to, organizationInviteId: row.organization_invite_id };
 }
 
 export async function exchangeGoogleCode(env: Env, request: Request, code: string) {

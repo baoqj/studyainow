@@ -5,9 +5,11 @@ import { CliLab } from './CliLab';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { InteractiveCourseware } from './InteractiveCourseware';
 import { FdeInteractiveCourseware } from './FdeInteractiveCourseware';
+import { AdSenseAd } from '../ads/AdSenseAd';
 import { useTranslation } from 'react-i18next';
 import { getAccountCopy } from '../../data/accountCopy';
 import type { AppLocale } from '../../data/courseContent';
+import { localizedPublicPath } from '../../lib/localeRoutes';
 
 export function ContentArea({
   course,
@@ -27,7 +29,8 @@ export function ContentArea({
   onCompleteLesson?: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const copy = getAccountCopy((i18n.resolvedLanguage ?? i18n.language) as AppLocale);
+  const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
+  const copy = getAccountCopy(locale);
   const markdown = lesson?.body ?? chapter.body;
   const title = lesson?.title ?? chapter.title;
   const summary = lesson?.summary || chapter.summary;
@@ -37,21 +40,21 @@ export function ContentArea({
 
   return (
     <main className="min-w-0 flex-grow w-full max-w-[840px] px-5 py-10 sm:px-8 sm:py-12 lg:px-12 mx-auto">
-      <nav aria-label={t('course.catalog')} className="flex flex-wrap items-center gap-2 text-label-sm font-label-sm text-outline mb-stack-md">
-        <Link to="/" className="rounded px-1 py-0.5 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors">
+      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-label-sm font-label-sm text-outline mb-stack-md">
+        <Link to={localizedPublicPath('/', locale)} className="rounded px-1 py-0.5 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors">
           {t('course.catalog')}
         </Link>
         <ChevronRight className="w-4 h-4" />
         <Link
-          to={`/courses/${course.id}`}
+          to={localizedPublicPath(`/courses/${course.id}`, locale)}
           className="rounded px-1 py-0.5 text-on-surface-variant hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
         >
-          {course.topic}
+          {course.title}
         </Link>
         <ChevronRight className="w-4 h-4" />
         {lesson ? (
           <Link
-            to={getChapterPath(course.id, chapter)}
+            to={getChapterPath(course.id, chapter, locale)}
             className="rounded px-1 py-0.5 text-on-surface-variant hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition-colors"
           >
             {t('course.chapter', { number: chapter.chapter.toString().padStart(2, '0') })}
@@ -125,12 +128,14 @@ export function ContentArea({
           </div>
         )}
 
+        {lesson && <AdSenseAd className="my-stack-lg" />}
+
         <hr className="border-outline-variant my-stack-lg" />
 
         <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
           {previous ? (
             <Link
-              to={getLessonPath(course.id, previous)}
+              to={getLessonPath(course.id, previous, locale)}
               className="flex flex-col items-start px-6 py-4 border border-outline-variant rounded-xl hover:border-primary hover:bg-surface-container-low transition-all group sm:max-w-[260px] w-full"
             >
               <span className="text-xs text-on-surface-variant mb-1 flex items-center gap-1 group-hover:text-primary transition-colors">
@@ -144,7 +149,7 @@ export function ContentArea({
 
           {!lesson && firstLesson ? (
             <Link
-              to={getLessonPath(course.id, firstLesson)}
+              to={getLessonPath(course.id, firstLesson, locale)}
               className="flex flex-col items-end text-right px-6 py-4 border border-primary bg-primary text-on-primary rounded-xl hover:opacity-90 transition-all group sm:max-w-[320px] w-full"
             >
               <span className="text-xs opacity-80 mb-1 flex items-center gap-1">
@@ -165,7 +170,7 @@ export function ContentArea({
                 </button>
               )}
               <Link
-                to={getLessonPath(course.id, next)}
+                to={getLessonPath(course.id, next, locale)}
                 onClick={onCompleteLesson}
                 className="flex flex-col items-end text-right px-6 py-4 border border-outline-variant rounded-xl hover:border-primary hover:bg-surface-container-low transition-all group w-full"
               >
