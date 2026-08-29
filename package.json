@@ -42,6 +42,7 @@
     "verify:resumes": "tsx scripts/verify-resume-generator.ts",
     "verify:resume-locales": "tsx scripts/verify-resume-locales.ts",
     "verify:admin": "tsx scripts/verify-admin-control-panel.ts",
+    "verify:profile-organization": "tsx scripts/verify-profile-organization.ts",
     "test:e2e:routes": "playwright test --config playwright.config.ts",
     "deploy": "npm run build && npx wrangler deploy",
     "deploy:dry-run": "npm run build && npx wrangler deploy --dry-run"
