@@ -6,20 +6,25 @@ import { Footer } from '../components/layout/Footer';
 import { DifficultyLadder } from '../components/interview/DifficultyLadder';
 import { MarkdownRenderer } from '../components/course/MarkdownRenderer';
 import { getInterviewCopy, levelDifficultyLabel, readInterviewProgress } from '../data/interviewCopy';
-import { getInterviewLevelPath, getInterviewQuestionPath, getInterviewSet, getInterviewSetPath, skillDisplayName } from '../data/interviewContent';
+import { findInterviewLevel, findInterviewSet, getInterviewLevelPath, getInterviewQuestionPath, getInterviewSet, getInterviewSetPath, skillDisplayName } from '../data/interviewContent';
 import { useTranslation } from 'react-i18next';
 import type { AppLocale } from '../data/courseContent';
+import { NotFound } from './NotFound';
 
 export function InterviewLevel() {
   const { setId, levelId } = useParams();
   const { t, i18n } = useTranslation();
   const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const copy = getInterviewCopy(locale);
-  const set = getInterviewSet(setId, locale);
-  const level = set.levels.find((item) => item.id === levelId || String(item.number) === levelId) ?? set.levels[0];
+  const matchedSet = findInterviewSet(setId, locale);
+  const set = matchedSet ?? getInterviewSet(undefined, locale);
+  const matchedLevel = matchedSet ? findInterviewLevel(matchedSet, levelId) : undefined;
+  const level = matchedLevel ?? set.levels[0];
   const progress = readInterviewProgress()[set.id] ?? {};
 
   useEffect(() => { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); }, [set.id, level.id]);
+
+  if (!matchedSet || !matchedLevel) return <NotFound />;
 
   const previousLevel = set.levels.find((item) => item.number === level.number - 1);
   const nextLevel = set.levels.find((item) => item.number === level.number + 1);

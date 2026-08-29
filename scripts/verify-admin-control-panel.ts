@@ -21,6 +21,10 @@ const userDetail = read('../src/pages/admin/AdminUserDetail.tsx');
 const activityTracker = read('../src/components/analytics/UserActivityTracker.tsx');
 const pageViewApi = read('../functions/api/activity/page-view.ts');
 const userActivityApi = read('../functions/api/admin/users/[userId]/activity.ts');
+const interviewsApi = read('../functions/api/admin/interviews/index.ts');
+const interviewsPage = read('../src/pages/admin/AdminInterviews.tsx');
+const interviewAdminCatalog = read('../functions/_lib/interviewCatalog.ts');
+const interviewContent = read('../src/data/interviewContent.ts');
 const organizationAccess = read('../functions/_lib/organizations.ts');
 const organizationApi = read('../functions/api/admin/organizations/[organizationId].ts');
 const organizationMembersApi = read('../functions/api/admin/organizations/[organizationId]/members.ts');
@@ -42,12 +46,12 @@ for (const table of ['organizations', 'organization_invites', 'organization_invi
 }
 assert.match(organizationMigration, /role IN \('user', 'member', 'operator', 'leader', 'admin'\)/, 'managed identities must include Leader');
 
-for (const route of ['/api/admin/overview', '/api/admin/users', '/api/admin/courses/system', '/api/admin/courses/community', '/api/admin/job-sources']) {
+for (const route of ['/api/admin/overview', '/api/admin/users', '/api/admin/interviews', '/api/admin/courses/system', '/api/admin/courses/community', '/api/admin/job-sources']) {
   assert.ok(worker.includes(`'${route}'`), `missing Worker route ${route}`);
 }
 assert.ok(worker.includes("'/api/activity/page-view'"), 'Worker must record authenticated page views');
 assert.match(worker, /adminUserActivityMatch/, 'Worker must expose per-user activity tabs');
-for (const route of ['users', 'courses', 'community-courses', 'knowledge-graph', 'job-sources', 'jobs', 'settings']) {
+for (const route of ['users', 'courses', 'community-courses', 'interviews', 'knowledge-graph', 'job-sources', 'jobs', 'settings']) {
   assert.ok(app.includes(`path="${route}"`), `missing nested admin route ${route}`);
 }
 assert.match(app, /<AdminLayout \/>/, 'admin routes must share the SaaS shell');
@@ -57,6 +61,7 @@ assert.match(login, /role === 'admin' \|\| role === 'leader'/, 'password login m
 assert.match(googleCallback, /adminRole \? '\/admin'/, 'Google login must route administrators to /admin');
 assert.match(topbar, /to="\/me"/, 'administrator account menu must expose the member space');
 assert.match(sidebar, /lg:hidden/, 'admin menu must use a mobile drawer');
+assert.match(sidebar, /面试题集.+\/admin\/interviews/, 'admin menu must expose interview-set management');
 assert.match(sidebar, /组织管理.+\/admin\/organizations/, 'administrator menu must expose organization management');
 assert.match(sidebar, /组织用户.+my-organization\?tab=members/, 'Leader menu must expose organization members');
 
@@ -98,6 +103,18 @@ assert.doesNotMatch(pageViewApi, /body\.userId/, 'clients must never choose acti
 assert.match(userActivityApi, /await requireAdmin/, 'only administrators may read another user activity');
 for (const source of ['user_activity_events', 'enrollments', 'reading_events', 'resume_source_documents', 'resume_documents']) {
   assert.ok(userActivityApi.includes(source), `user-detail API must query ${source}`);
+}
+
+assert.match(interviewsApi, /await requireAdmin/, 'only administrators may read interview analytics');
+assert.match(interviewsApi, /category = 'interview'/, 'interview analytics must use tracked interview visits');
+assert.match(interviewsApi, /COUNT\(DISTINCT user_id\)/, 'interview analytics must count unique visitors');
+assert.match(interviewsApi, /JOIN users ON users\.id = events\.user_id/, 'visit history must include the owning user');
+assert.match(interviewsPage, /<AdminInterviewTrend data=\{data\.trend\}/, 'the admin interview page must visualize traffic');
+assert.match(interviewsPage, /用户访问历史/, 'the admin interview page must expose visit history');
+assert.match(interviewsPage, /min-w-\[980px\]/, 'the interview list must use the available table width');
+for (const id of ['ai-engineering-progressive-assessment', 'inference-engine-scheduler']) {
+  assert.ok(interviewAdminCatalog.includes(id), `admin interview catalog must include ${id}`);
+  assert.ok(interviewContent.includes(id), `public interview catalog must include ${id}`);
 }
 
 console.log('Admin control-panel verification passed.');

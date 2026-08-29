@@ -1,28 +1,14 @@
-import { useMemo, useState } from 'react';
-import React from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
 import { InterviewCard } from '../components/interview/InterviewCard';
-import { Search, Tags } from 'lucide-react';
+import { InterviewFiltersSidebar, type InterviewFilterOption } from '../components/interview/InterviewFiltersSidebar';
+import { InterviewMobileFiltersDrawer } from '../components/interview/InterviewMobileFiltersDrawer';
+import { Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getInterviewSets } from '../data/interviewContent';
 import { getInterviewCopy } from '../data/interviewCopy';
 import type { AppLocale } from '../data/courseContent';
-
-const FilterChip: React.FC<{ active: boolean; label: string; onClick: () => void }> = ({ active, label, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    aria-pressed={active}
-    className={`rounded-full border px-3 py-1.5 text-[12px] font-label-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
-      active
-        ? 'border-primary bg-primary text-on-primary'
-        : 'border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:border-primary/50 hover:text-primary'
-    }`}
-  >
-    {label}
-  </button>
-);
 
 export function InterviewCatalog() {
   const { t, i18n } = useTranslation();
@@ -33,10 +19,35 @@ export function InterviewCatalog() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const allTags = useMemo(() => Array.from(new Set(sets.flatMap((set) => set.tags))).sort(), [sets]);
-  const allCategories = useMemo(() => Array.from(new Set(sets.map((set) => set.category))).sort(), [sets]);
-  const allKeywords = useMemo(() => Array.from(new Set(sets.flatMap((set) => set.keywords))).sort(), [sets]);
+  const allTags = useMemo<InterviewFilterOption[]>(
+    () =>
+      Array.from(new Set(sets.flatMap((set) => set.tags))).sort().map((tag) => ({
+        value: tag,
+        label: tag,
+        count: sets.filter((set) => set.tags.includes(tag)).length,
+      })),
+    [sets],
+  );
+  const allCategories = useMemo<InterviewFilterOption[]>(
+    () =>
+      Array.from(new Set(sets.map((set) => set.category))).sort().map((category) => ({
+        value: category,
+        label: category,
+        count: sets.filter((set) => set.category === category).length,
+      })),
+    [sets],
+  );
+  const allKeywords = useMemo<InterviewFilterOption[]>(
+    () =>
+      Array.from(new Set(sets.flatMap((set) => set.keywords))).sort().map((keyword) => ({
+        value: keyword,
+        label: keyword,
+        count: sets.filter((set) => set.keywords.includes(keyword)).length,
+      })),
+    [sets],
+  );
 
   const filteredSets = useMemo(
     () =>
@@ -65,21 +76,33 @@ export function InterviewCatalog() {
 
   const hasActiveFilters = Boolean(query.trim()) || selectedTags.length > 0 || selectedCategories.length > 0 || selectedKeywords.length > 0;
 
-  const renderGroup = (label: string, options: string[], selected: string[], onToggle: (value: string) => void, testId: string) =>
-    options.length > 0 && (
-      <div data-testid={testId}>
-        <h3 className="mb-2 font-label-sm text-[12px] uppercase tracking-[0.14em] text-on-surface-variant">{label}</h3>
-        <div className="flex flex-wrap gap-2">
-          {options.map((option) => (
-            <FilterChip key={option} active={selected.includes(option)} label={option} onClick={() => onToggle(option)} />
-          ))}
-        </div>
-      </div>
-    );
+  const closeMobileFilters = useCallback(() => setMobileFiltersOpen(false), []);
+  const filterLabels = {
+    category: copy.filterCategory,
+    clear: copy.clearFilters,
+    filters: copy.filtersTitle,
+    keywords: copy.filterKeyword,
+    showing: copy.showing.replace('{{filtered}}', String(filteredSets.length)).replace('{{total}}', String(sets.length)),
+    tags: copy.filterTags,
+  };
+  const filterProps = {
+    categoryOptions: allCategories,
+    hasActiveFilters,
+    keywordOptions: allKeywords,
+    labels: filterLabels,
+    selectedCategories,
+    selectedKeywords,
+    selectedTags,
+    tagOptions: allTags,
+    onClear: clearFilters,
+    onToggleCategory: (value: string) => toggleValue(value, selectedCategories, setSelectedCategories),
+    onToggleKeyword: (value: string) => toggleValue(value, selectedKeywords, setSelectedKeywords),
+    onToggleTag: (value: string) => toggleValue(value, selectedTags, setSelectedTags),
+  };
 
   return (
     <div data-testid="interview-catalog-page" className="bg-background text-on-surface font-body-md min-h-screen flex flex-col">
-      <Navbar />
+      <Navbar onMobileBrandClick={() => setMobileFiltersOpen(true)} mobileBrandMenuOpen={mobileFiltersOpen} />
       <main className="flex-grow pt-[64px]">
         <section className="bg-surface-container-low py-stack-lg border-b border-outline-variant">
           <div className="mx-auto flex w-full max-w-[1920px] flex-col items-center px-4 text-center sm:px-6 lg:px-8">
@@ -102,27 +125,10 @@ export function InterviewCatalog() {
           </div>
         </section>
 
-        <div className="mx-auto flex w-full max-w-[1920px] flex-col gap-6 px-4 py-stack-lg sm:px-6 lg:px-8">
-          <section aria-label={copy.filtersTitle} className="rounded-xl border border-outline-variant bg-surface-container-lowest p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 font-label-sm text-label-sm text-on-surface">
-                <Tags className="h-4 w-4 text-primary" aria-hidden="true" />
-                {copy.filtersTitle}
-              </h2>
-              {hasActiveFilters && (
-                <button type="button" onClick={clearFilters} className="text-[12px] font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-                  {copy.clearFilters}
-                </button>
-              )}
-            </div>
-            <div className="flex flex-col gap-4">
-              {renderGroup(copy.filterCategory, allCategories, selectedCategories, (value) => toggleValue(value, selectedCategories, setSelectedCategories), 'interview-category-filters')}
-              {renderGroup(copy.filterTags, allTags, selectedTags, (value) => toggleValue(value, selectedTags, setSelectedTags), 'interview-tag-filters')}
-              {renderGroup(copy.filterKeyword, allKeywords, selectedKeywords, (value) => toggleValue(value, selectedKeywords, setSelectedKeywords), 'interview-keyword-filters')}
-            </div>
-          </section>
+        <div className="mx-auto flex w-full max-w-[1920px] flex-col gap-gutter px-4 py-stack-lg sm:px-6 lg:flex-row lg:px-8">
+          <InterviewFiltersSidebar {...filterProps} />
 
-          <section>
+          <section data-testid="interview-results" className="mt-6 min-w-0 flex-grow">
             <div className="flex items-center justify-between mb-stack-sm">
               <h2 className="font-h2 text-h2 text-on-surface">{copy.heroTitle}</h2>
               <span className="font-body-md text-body-md text-on-surface-variant">
@@ -148,6 +154,7 @@ export function InterviewCatalog() {
           </section>
         </div>
       </main>
+      <InterviewMobileFiltersDrawer open={mobileFiltersOpen} onClose={closeMobileFilters} {...filterProps} />
       <Footer />
     </div>
   );

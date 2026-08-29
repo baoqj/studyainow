@@ -21,13 +21,25 @@ export const InterviewCard: React.FC<{ set: InterviewSet }> = ({ set }) => {
     >
       <div className="relative h-44 overflow-hidden">
         {set.coverUrl ? (
-          <img
-            alt={set.title}
-            src={set.coverUrl}
-            loading="lazy"
-            decoding="async"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
+          <>
+            <img
+              alt={set.title}
+              src={set.coverUrl}
+              loading="lazy"
+              decoding="async"
+              className={`h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 ${set.coverUrlDark ? 'dark:hidden' : ''}`}
+            />
+            {set.coverUrlDark && (
+              <img
+                alt=""
+                aria-hidden="true"
+                src={set.coverUrlDark}
+                loading="lazy"
+                decoding="async"
+                className="hidden h-full w-full object-cover transition-transform duration-500 group-hover:scale-105 dark:block"
+              />
+            )}
+          </>
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#102a43] via-[#123f5c] to-[#0ea5a4] flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
             <Code2 className="w-16 h-16 text-[#f4c95d] opacity-70" aria-hidden="true" />

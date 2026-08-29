@@ -6,19 +6,24 @@ import { Footer } from '../components/layout/Footer';
 import { RevealSection } from '../components/interview/RevealSection';
 import { DifficultyLadder } from '../components/interview/DifficultyLadder';
 import { MarkdownRenderer } from '../components/course/MarkdownRenderer';
+import { InferenceEngineTrace } from '../components/interview/InferenceEngineTrace';
 import { clearInterviewProgress, getInterviewCopy, levelDifficultyLabel, readInterviewProgress, writeInterviewProgress } from '../data/interviewCopy';
 import {
   getInterviewLevelPath,
-  getInterviewQuestion,
+  findInterviewLevel,
+  findInterviewQuestion,
+  findInterviewSet,
   getInterviewQuestionPath,
   getInterviewSet,
   getInterviewSetPath,
   getQuestionNeighbors,
   getQuestionPosition,
+  INFERENCE_ENGINE_INTERVIEW_SET_ID,
   skillDisplayName,
 } from '../data/interviewContent';
 import { useTranslation } from 'react-i18next';
 import type { AppLocale } from '../data/courseContent';
+import { NotFound } from './NotFound';
 
 const SECTION_IDS = ['hint', 'mistakes', 'solution', 'summary'] as const;
 type SectionId = (typeof SECTION_IDS)[number];
@@ -28,9 +33,13 @@ export function InterviewQuestion() {
   const { t, i18n } = useTranslation();
   const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const copy = getInterviewCopy(locale);
-  const set = getInterviewSet(setId, locale);
-  const level = set.levels.find((item) => item.id === levelId || String(item.number) === levelId) ?? set.levels[0];
-  const question = getInterviewQuestion(level, questionId) ?? level.questions[0];
+  const matchedSet = findInterviewSet(setId, locale);
+  const set = matchedSet ?? getInterviewSet(undefined, locale);
+  const matchedLevel = matchedSet ? findInterviewLevel(matchedSet, levelId) : undefined;
+  const level = matchedLevel ?? set.levels[0];
+  const matchedQuestion = matchedLevel ? findInterviewQuestion(matchedLevel, questionId) : undefined;
+  const question = matchedQuestion ?? level.questions[0];
+  const validRoute = Boolean(matchedSet && matchedLevel && matchedQuestion);
   const { previous, next } = getQuestionNeighbors(set, question);
   const position = getQuestionPosition(set, question);
 
@@ -87,7 +96,7 @@ export function InterviewQuestion() {
 
   const allRevealed = useMemo(() => SECTION_IDS.every((section) => revealed.includes(section)), [revealed]);
 
-  if (!question) return null;
+  if (!validRoute || !question) return <NotFound />;
 
   return (
     <div className="min-h-screen bg-background text-on-surface font-body-md flex flex-col">
@@ -154,6 +163,10 @@ export function InterviewQuestion() {
                 </>
               )}
             </section>
+
+            {set.id === INFERENCE_ENGINE_INTERVIEW_SET_ID && (
+              <InferenceEngineTrace questionId={question.id} locale={locale} />
+            )}
 
             {/* 隐藏内容：先做再看 */}
             <section aria-label={copy.hiddenUntilReveal} className="space-y-3">

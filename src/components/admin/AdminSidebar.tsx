@@ -1,6 +1,7 @@
 import {
   BookOpenCheck,
   BriefcaseBusiness,
+  ClipboardList,
   DatabaseZap,
   Building2,
   LayoutDashboard,
@@ -21,6 +22,7 @@ const administratorItems = [
   { label: '组织管理', icon: Building2, path: '/admin/organizations' },
   { label: '自有课程', icon: BookOpenCheck, path: '/admin/courses' },
   { label: '用户课程', icon: UserRoundCog, path: '/admin/community-courses' },
+  { label: '面试题集', icon: ClipboardList, path: '/admin/interviews' },
   { label: '知识图谱', icon: Network, path: '/admin/knowledge-graph' },
   { label: '职位来源', icon: DatabaseZap, path: '/admin/job-sources' },
   { label: '职位列表', icon: BriefcaseBusiness, path: '/admin/jobs' },
@@ -33,6 +35,7 @@ const leaderItems = [
   { label: '组织消息', icon: MessageSquareText, path: '/admin/my-organization?tab=messages' },
   { label: '自有课程', icon: BookOpenCheck, path: '/admin/courses' },
   { label: '职位列表', icon: BriefcaseBusiness, path: '/admin/jobs' },
+  { label: '面试题集', icon: ClipboardList, path: '/admin/interviews' },
 ];
 
 export function AdminSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {

@@ -56,6 +56,7 @@ import { onRequestGet as getAdminOverview } from '../functions/api/admin/overvie
 import { onRequestGet as listAdminUsers } from '../functions/api/admin/users/index';
 import { onRequestGet as getAdminUser, onRequestPatch as updateAdminUser } from '../functions/api/admin/users/[userId]';
 import { onRequestGet as getAdminUserActivity } from '../functions/api/admin/users/[userId]/activity';
+import { onRequestGet as getAdminInterviews } from '../functions/api/admin/interviews/index';
 import { onRequestGet as getSystemCourseAnalytics } from '../functions/api/admin/courses/system';
 import { onRequestGet as getCommunityCourseAnalytics } from '../functions/api/admin/courses/community';
 import { onRequestPatch as updateCommunityCourse } from '../functions/api/admin/courses/community/[courseId]';
@@ -377,6 +378,7 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
     return methodNotAllowed('GET, POST');
   }
   if (pathname === '/api/admin/my-organization') return method === 'GET' ? run(getMyOrganization, request, env, ctx) : methodNotAllowed('GET');
+  if (pathname === '/api/admin/interviews') return method === 'GET' ? run(getAdminInterviews, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/courses/system') return method === 'GET' ? run(getSystemCourseAnalytics, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/courses/community') return method === 'GET' ? run(getCommunityCourseAnalytics, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/admin/jobs') return method === 'GET' ? run(listAdminJobs, request, env, ctx) : methodNotAllowed('GET');

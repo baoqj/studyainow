@@ -49,6 +49,7 @@ const AdminOrganizations = lazy(() => import('./pages/admin/AdminOrganizations')
 const AdminOrganizationDetail = lazy(() => import('./pages/admin/AdminOrganizationDetail').then((module) => ({ default: module.AdminOrganizationDetail })));
 const AdminSystemCourses = lazy(() => import('./pages/admin/AdminSystemCourses').then((module) => ({ default: module.AdminSystemCourses })));
 const AdminCommunityCourses = lazy(() => import('./pages/admin/AdminCommunityCourses').then((module) => ({ default: module.AdminCommunityCourses })));
+const AdminInterviews = lazy(() => import('./pages/admin/AdminInterviews').then((module) => ({ default: module.AdminInterviews })));
 const KnowledgeGraphPreview = lazy(() => import('./pages/admin/KnowledgeGraphPreview').then((module) => ({ default: module.KnowledgeGraphPreview })));
 const AdminJobSources = lazy(() => import('./pages/admin/AdminJobSources').then((module) => ({ default: module.AdminJobSources })));
 const AdminJobs = lazy(() => import('./pages/admin/AdminJobs').then((module) => ({ default: module.AdminJobs })));
@@ -125,6 +126,7 @@ function AppRoutes() {
           <Route path="my-organization" element={<AdminOrganizationDetail my />} />
           <Route path="courses" element={<AdminSystemCourses />} />
           <Route path="community-courses" element={<AdminCommunityCourses />} />
+          <Route path="interviews" element={<AdminInterviews />} />
           <Route path="knowledge-graph" element={<KnowledgeGraphPreview />} />
           <Route path="job-sources" element={<AdminJobSources />} />
           <Route path="jobs" element={<AdminJobs />} />

@@ -4,7 +4,7 @@ import { getInterviewLevelPath, type InterviewLevel, type InterviewSet } from '.
 import { getInterviewCopy, levelDifficultyLabel } from '../../data/interviewCopy';
 import type { AppLocale } from '../../data/courseContent';
 
-/** L1→L6 难度进阶阶梯：随级别升高显示更高的难度提示与更深的颜色。 */
+/** 题集难度进阶阶梯：按实际 level 数量自适应，而非固定为六级。 */
 export function DifficultyLadder({
   set,
   levels,
@@ -17,7 +17,7 @@ export function DifficultyLadder({
   const { t, i18n } = useTranslation();
   const locale = (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const copy = getInterviewCopy(locale);
-  const steps = [1, 2, 3, 4, 5, 6].map((number) => levels.find((level) => level.number === number));
+  const steps = [...levels].sort((a, b) => a.number - b.number);
   const intensity = ['from-[#0ea5a4]/25', 'from-[#0ea5a4]/40', 'from-[#0ea5a4]/55', 'from-[#2c7a7b]/70', 'from-[#28527a]/85', 'from-[#102a43]'];
 
   return (
@@ -28,8 +28,7 @@ export function DifficultyLadder({
       </div>
       <div className="flex items-end gap-1.5" role="list" aria-label={copy.difficultyLadder}>
         {steps.map((level, index) => {
-          const isCurrent = currentLevel && level && level.number === currentLevel.number;
-          if (!level) return null;
+          const isCurrent = currentLevel && level.number === currentLevel.number;
           const height = 28 + index * 9;
           return (
             <Link
@@ -43,7 +42,7 @@ export function DifficultyLadder({
               }`}
             >
               <span
-                className={`w-full rounded bg-gradient-to-t ${intensity[index]} text-center text-[11px] font-bold text-white transition-transform group-hover:-translate-y-0.5`}
+                className={`w-full rounded bg-gradient-to-t ${intensity[Math.min(index, intensity.length - 1)]} text-center text-[11px] font-bold text-white transition-transform group-hover:-translate-y-0.5`}
                 style={{ height: `${height}px`, lineHeight: `${height}px` }}
               >
                 L{level.number}
