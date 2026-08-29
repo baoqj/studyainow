@@ -18,6 +18,12 @@ Date: 2026-08-29
 | `npm run build` | Passed. |
 | `wrangler@4.127.1 deploy --dry-run` | Passed; no D1 migration is required. |
 
+## Production verification
+
+Deployed `studyainow-web` version `b7974b73-cd4a-4861-9860-96d75153c9cd` to `studyai.now/*`.
+
+`GET /api/profile` without a session returns `401 {"error":"Authentication required"}`, confirming the expanded response remains behind the existing user-authentication boundary. The organization fields are returned only after the existing `requireUser` check; no production organization data is exposed to an unauthenticated request.
+
 ## Rollback
 
 Revert this release and redeploy the previous Worker version. The response expansion does not alter stored data.
