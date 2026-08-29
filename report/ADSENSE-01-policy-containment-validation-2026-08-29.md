@@ -24,7 +24,14 @@ No ad component, slot, or client-side loader is included in this release. This a
 
 ## Production verification
 
-Pending deployment. The production check must confirm the ownership meta and absence of AdSense network requests on public and private routes.
+Deployed `studyainow-web` version `c0d43c81-1e49-4c3e-95bd-7bf39777b058` to `studyai.now/*`.
+
+| Check | Result |
+| --- | --- |
+| `/zh-cn/privacy`, `/en/privacy`, `/login` server HTML | Each includes the ownership meta tag and no `pagead2.googlesyndication.com` or `adsbygoogle` loader. |
+| Chinese and English privacy pages | Render the localized privacy policy with no advertising requests or page errors. |
+| Public course lesson | Renders with zero advertising requests and zero ad placements. |
+| Login and unauthenticated resume entry | Render/redirect correctly with zero advertising requests and zero ad placements. |
 
 ## Follow-up gate for manual advertising
 
