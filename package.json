@@ -20,6 +20,7 @@
     "verify:knowledge-graph": "tsx scripts/verify-knowledge-graph.ts",
     "verify:job-semantic-index": "tsx scripts/verify-job-semantic-index.ts",
     "test:job-presentation": "tsx scripts/verify-job-presentation.ts",
+    "verify:equifax-jobs": "tsx scripts/verify-equifax-workday-source.ts",
     "generate:ai-courses": "node scripts/generate-ai-practice-courses.mjs && node scripts/generate-ai-course-graph-migration.mjs",
     "verify:ai-courses": "node scripts/verify-ai-practice-courses.mjs",
     "generate:fde": "node scripts/generate-fde-courses.mjs && node scripts/generate-fde-graph-migration.mjs",
