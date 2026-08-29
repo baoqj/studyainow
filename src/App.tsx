@@ -57,9 +57,8 @@ const AdminSettings = lazy(() => import('./pages/admin/Settings').then((module) 
 const NotFound = lazy(() => import('./pages/NotFound').then((module) => ({ default: module.NotFound })));
 
 function RouteLoading() {
-  const { i18n } = useTranslation();
-  const copy = getAccountCopy((i18n.resolvedLanguage ?? i18n.language) as AppLocale);
-  return <div data-testid="route-loading" className="min-h-[38vh] px-5 py-16 text-center text-on-surface-variant">{copy.loadingAccount}</div>;
+  const { t } = useTranslation();
+  return <div data-testid="route-loading" className="min-h-[38vh] px-5 py-16 text-center text-on-surface-variant">{t('common.loading')}</div>;
 }
 
 function AppRouteBoundary({ children }: { children: ReactNode }) {

@@ -7,7 +7,7 @@ import { ContentArea } from '../components/course/ContentArea';
 import { TOC } from '../components/course/TOC';
 import { CourseFooter } from '../components/course/CourseFooter';
 import { extractHeadings } from '../components/course/MarkdownRenderer';
-import { findChapter, findLesson, getChapter, getCourse, getLessonNeighbors, loadCourse } from '../data/courseContent';
+import { findChapter, findLesson, getLessonNeighbors, loadCourse, type Course } from '../data/courseContent';
 import { useTranslation } from 'react-i18next';
 import type { AppLocale } from '../data/courseContent';
 import { fetchCourseAccess, type CourseAccess } from '../lib/account';
@@ -25,7 +25,7 @@ export function CourseDetail() {
   const locale = localeFromPathname(location.pathname) ?? (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const [isChapterMenuOpen, setIsChapterMenuOpen] = useState(false);
   const [access, setAccess] = useState<CourseAccess | null>(null);
-  const [matchedCourse, setMatchedCourse] = useState<ReturnType<typeof getCourse> | undefined>();
+  const [matchedCourse, setMatchedCourse] = useState<Course | undefined>();
   const [courseLoading, setCourseLoading] = useState(true);
   useEffect(() => {
     let active = true;
@@ -38,35 +38,34 @@ export function CourseDetail() {
     });
     return () => { active = false; };
   }, [courseId, locale]);
-  const course = matchedCourse ?? getCourse(undefined, locale);
-  const matchedChapter = matchedCourse ? findChapter(matchedCourse, chapterId) : undefined;
-  const chapter = matchedChapter ?? getChapter(course, undefined);
-  const matchedLesson = matchedChapter && lessonId ? findLesson(matchedChapter, lessonId) : undefined;
-  const lesson = matchedLesson;
-  const validRoute = Boolean(matchedCourse && matchedChapter && (!lessonId || matchedLesson));
-  const { previous, next } = getLessonNeighbors(course, lesson);
-  const markdown = lesson?.body ?? chapter.body;
+  const course = matchedCourse;
+  const chapter = course ? findChapter(course, chapterId) : undefined;
+  const lesson = chapter && lessonId ? findLesson(chapter, lessonId) : undefined;
+  const validRoute = Boolean(course && chapter && (!lessonId || lesson));
+  const { previous, next } = course ? getLessonNeighbors(course, lesson) : { previous: undefined, next: undefined };
+  const markdown = lesson?.body ?? chapter?.body ?? '';
 
   useEffect(() => {
-    if (validRoute) trackCourseClick(course.id, chapter.chapter);
-  }, [course.id, chapter.chapter, lesson?.routeId, validRoute]);
+    if (validRoute && course && chapter) trackCourseClick(course.id, chapter.chapter);
+  }, [course?.id, chapter?.chapter, lesson?.routeId, validRoute]);
 
   useEffect(() => {
-    if (!validRoute) return;
+    if (!validRoute || !course) return;
     let active = true;
     setAccess(null);
     fetchCourseAccess(course.id).then((result) => active && setAccess(result)).catch(() => active && setAccess({ authenticated: false, courseManaged: true, chapters: [] }));
     return () => { active = false; };
-  }, [course.id, validRoute]);
+  }, [course?.id, validRoute]);
 
-  const chapterAccess = access?.chapters.find((item) => item.chapterNumber === chapter.chapter);
-  // Do not reveal managed content while the access request is pending or failed.
-  const locked = access === null || access.courseManaged && (chapterAccess?.locked ?? true);
+  const chapterAccess = chapter ? access?.chapters.find((item) => item.chapterNumber === chapter.chapter) : undefined;
+  // Public course pages must not wait behind auth/account checks. Only hide a
+  // chapter after the access API explicitly says the matched chapter is locked.
+  const locked = Boolean(access?.courseManaged && chapterAccess?.locked);
   const lockedChapterNumbers = new Set<number>();
   for (const item of access?.chapters ?? []) if (item.locked) lockedChapterNumbers.add(item.chapterNumber);
 
   const persistProgress = (status: 'reading' | 'completed', forcePercent?: number) => {
-    if (!access?.authenticated) return;
+    if (!access?.authenticated || !course || !chapter) return;
 
     const scrollable = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     const progressPercent = forcePercent ?? Math.min(100, Math.max(1, Math.round((window.scrollY / scrollable) * 100)));
@@ -89,11 +88,11 @@ export function CourseDetail() {
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [chapter.routeId, lesson?.routeId]);
+  }, [chapter?.routeId, lesson?.routeId]);
 
   useEffect(() => {
     setIsChapterMenuOpen(false);
-  }, [chapter.routeId, lesson?.routeId]);
+  }, [chapter?.routeId, lesson?.routeId]);
 
   useEffect(() => {
     if (!isChapterMenuOpen) return;
@@ -145,7 +144,7 @@ export function CourseDetail() {
       window.removeEventListener('beforeunload', onBeforeUnload);
       sendProgress(true);
     };
-  }, [access?.authenticated, course.id, chapter.chapter, lesson?.routeId]);
+  }, [access?.authenticated, course?.id, chapter?.chapter, lesson?.routeId]);
 
   if (courseLoading) return <div data-testid="course-loading" className="min-h-[38vh] px-5 py-16 text-center text-on-surface-variant">{t('common.loading')}</div>;
   if (!matchedCourse && courseId && chapterId && locale !== 'zh-CN' && getCatalogCourse(courseId, locale)) {
@@ -154,11 +153,13 @@ export function CourseDetail() {
       : `/courses/${encodeURIComponent(courseId)}/chapters/${encodeURIComponent(chapterId)}`;
     return <Navigate replace to={localizedPublicPath(sourcePath, 'zh-CN')} />;
   }
-  if (!validRoute) return <NotFound />;
+  if (!validRoute || !course || !chapter) return <NotFound />;
+  const resolvedCourse = course;
+  const resolvedChapter = chapter;
 
   return (
     <div className="bg-background text-on-background min-h-screen flex flex-col font-body-md text-body-md">
-      <CourseNavbar course={course} />
+      <CourseNavbar course={resolvedCourse} />
 
       <button
         aria-controls="mobile-course-menu"
@@ -204,8 +205,8 @@ export function CourseDetail() {
             <X className="h-4 w-4" />
           </button>
           <SidebarNavigation
-            course={course}
-            currentChapter={chapter}
+            course={resolvedCourse}
+            currentChapter={resolvedChapter}
             currentLesson={lesson}
             lockedChapterNumbers={lockedChapterNumbers}
             mode="drawer"
@@ -215,10 +216,10 @@ export function CourseDetail() {
       </div>
       
       <div className="max-w-[1440px] mx-auto w-full flex-grow flex pt-16">
-        <SidebarNavigation course={course} currentChapter={chapter} currentLesson={lesson} lockedChapterNumbers={lockedChapterNumbers} />
+        <SidebarNavigation course={resolvedCourse} currentChapter={resolvedChapter} currentLesson={lesson} lockedChapterNumbers={lockedChapterNumbers} />
         <ContentArea
-          course={course}
-          chapter={chapter}
+          course={resolvedCourse}
+          chapter={resolvedChapter}
           lesson={lesson}
           previous={previous}
           next={next}
