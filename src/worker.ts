@@ -530,18 +530,20 @@ export default {
         // in bounded batches without using a changing source catalogue as
         // negative evidence.
         const urlInspection = await inspectDueJobUrls(env, 48, true);
+        // Presentation has its own durable lock and must continue even while
+        // the one-time URL-inspection backlog is draining. Otherwise a policy
+        // correction could leave permitted excerpts empty for hours.
+        const presentation = await runPendingJobPresentationRefresh(env, 32);
         if (urlInspection.initialPending > 0) {
           console.log('Scheduled original JD URL inspection advanced', {
             cron: controller.cron,
             scheduledTime: new Date(controller.scheduledTime).toISOString(),
             initialSourceSync,
             urlInspection,
+            presentation,
           });
           return;
         }
-        // Public excerpts are derived from immutable normalized job versions.
-        // Refresh presentation without recrawling or changing semantic inputs.
-        const presentation = await runPendingJobPresentationRefresh(env, 32);
         // Rebuild approved dictionary evidence first, then prioritize the
         // current JD queue so the DeepSeek pass can add reviewed candidates
         // and related concepts without waiting behind course discovery.
