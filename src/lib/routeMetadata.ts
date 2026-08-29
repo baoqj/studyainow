@@ -264,7 +264,7 @@ export function getRouteMetadata(pathname: string): RouteMetadata {
   let courseSchema: Record<string, unknown> | undefined;
   let topicSchema: Record<string, unknown> | undefined;
   let topicFaqSchema: Record<string, unknown> | undefined;
-  let untranslatedLessonRoute = false;
+  let untranslatedCourseRoute = false;
 
   if (!isKnownRoute) {
     title = language === 'zh-CN' ? '页面未找到 | Study AI Now!' : language === 'zh-TW' ? '找不到頁面 | Study AI Now!' : 'Page not found | Study AI Now!';
@@ -336,7 +336,7 @@ export function getRouteMetadata(pathname: string): RouteMetadata {
       breadcrumbs = [...breadcrumbs, { name: courseTitle, url: `${SITE_ORIGIN}${coursePath}` }];
       if (courseMatch[2]) breadcrumbs.push({ name: replaceNumber(copy.chapter, courseMatch[2]), url: `${SITE_ORIGIN}${localizedPublicPath(`/courses/${courseId}/chapters/${courseMatch[2]}`, language)}` });
       if (courseMatch[3]) breadcrumbs.push({ name: replaceNumber(copy.lesson, courseMatch[3]), url: canonical });
-      untranslatedLessonRoute = Boolean((courseMatch[2] || courseMatch[3]) && !hasLocalizedLessonContent(courseId, language));
+      untranslatedCourseRoute = Boolean(!hasLocalizedLessonContent(courseId, language));
       courseSchema = {
         '@type': 'Course', name: courseTitle, description, url: `${SITE_ORIGIN}${coursePath}`, inLanguage: language,
         provider: { '@type': 'Organization', name: 'Study AI Now!', url: SITE_ORIGIN },
@@ -354,7 +354,7 @@ export function getRouteMetadata(pathname: string): RouteMetadata {
 
   const routeIndexable = isSeoIndexable(canonicalContentPath, language);
   const indexableLocales = indexableLocalesForPath(canonicalContentPath);
-  const alternates = isPublicLocalizedRoute && routeIndexable && !untranslatedLessonRoute
+  const alternates = isPublicLocalizedRoute && routeIndexable && !untranslatedCourseRoute
     ? [...indexableLocales.map((locale) => ({ hreflang: locale, href: `${SITE_ORIGIN}${localizedPublicPath(canonicalContentPath, locale)}` })), { hreflang: 'x-default', href: `${SITE_ORIGIN}${localizedPublicPath(canonicalContentPath, 'zh-CN')}` }]
     : [];
   const structuredData = breadcrumbSchema(breadcrumbs);
@@ -375,10 +375,10 @@ export function getRouteMetadata(pathname: string): RouteMetadata {
     keywords: [...new Set(keywords)].slice(0, 24),
     language,
     openGraphLocale: languageCode(language),
-    // Course/15 only has Simplified Chinese lesson source today. Its localized
-    // course landing page is indexable, but a translated lesson URL is not
-    // advertised to search engines until real lesson-localized source exists.
-    robots: isNoIndexRoute(path) || untranslatedLessonRoute || !routeIndexable ? 'noindex,nofollow' : 'index,follow',
+    // Course/15 currently has a complete learner-facing corpus only in
+    // Simplified Chinese. Neither its landing nor lesson URLs are advertised
+    // in another language until that locale's corpus is complete.
+    robots: isNoIndexRoute(path) || untranslatedCourseRoute || !routeIndexable ? 'noindex,nofollow' : 'index,follow',
     structuredData,
     title,
   };

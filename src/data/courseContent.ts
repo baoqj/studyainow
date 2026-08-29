@@ -1,6 +1,4 @@
-import outlineRaw from '../../../Course/claude-code-guide/course-outline.md?raw';
-import hermesOutlineRaw from '../../../Course/hermes-agent-guide/course-outline.md?raw';
-import codexOutlineRaw from '../../../Course/Codex/course-outline.md?raw';
+import { getCourseSeoCopy } from './courseSeo';
 import { localizedPublicPath } from '../lib/localeRoutes';
 
 // 所有课程封面统一存放于仓库外的 img/cover/course/（与 Course/ 同属私有资源）。
@@ -93,59 +91,62 @@ type CourseSource = {
   lessonModules: Record<string, string>;
 };
 
-const claudeChapterModules = import.meta.glob('../../../Course/claude-code-guide/*/index.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
+type RawMarkdownLoader = () => Promise<string>;
 
-const claudeLessonModules = import.meta.glob('../../../Course/claude-code-guide/*/lessons/*.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
+// Course pages own their Markdown. Catalog pages only import the compact
+// catalogue metadata, so no course body belongs in the initial application
+// bundle.
+const coreSourceModules = import.meta.glob('../../../Course/{claude-code-guide,hermes-agent-guide,Codex}/**/*.md', {
+  query: '?raw', import: 'default',
+}) as Record<string, RawMarkdownLoader>;
 
-const hermesChapterModules = import.meta.glob('../../../Course/hermes-agent-guide/*/index.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
+const coreLocalizedModules: Partial<Record<Exclude<AppLocale, 'zh-CN'>, Record<string, RawMarkdownLoader>>> = {
+  'zh-TW': import.meta.glob('../../../Course/locales/zh-TW/{claude-code-guide,hermes-agent-guide,Codex}/**/*.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+  en: import.meta.glob('../../../Course/locales/en/{claude-code-guide,hermes-agent-guide,Codex}/**/*.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+  fr: import.meta.glob('../../../Course/locales/fr/{claude-code-guide,hermes-agent-guide,Codex}/**/*.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+  es: import.meta.glob('../../../Course/locales/es/{claude-code-guide,hermes-agent-guide,Codex}/**/*.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+};
 
-const hermesLessonModules = import.meta.glob('../../../Course/hermes-agent-guide/*/lessons/*.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
-
-const codexChapterModules = import.meta.glob('../../../Course/Codex/*/index.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
-
-const codexLessonModules = import.meta.glob('../../../Course/Codex/*/lessons/*.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
-
+// Course/15 contains 450 lessons. Keep its Markdown out of the route chunk
+// until a learner opens one exact course; each locale is loaded independently.
 const aiCourseOutlineModules = import.meta.glob('../../../Course/15/*/course-outline.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
+  query: '?raw', import: 'default',
+}) as Record<string, RawMarkdownLoader>;
 
 const aiCourseChapterModules = import.meta.glob('../../../Course/15/*/*/index.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
+  query: '?raw', import: 'default',
+}) as Record<string, RawMarkdownLoader>;
 
 const aiCourseLessonModules = import.meta.glob('../../../Course/15/*/*/lessons/*.md', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-}) as Record<string, string>;
+  query: '?raw', import: 'default',
+}) as Record<string, RawMarkdownLoader>;
+
+const aiCourseLocalizedModules: Partial<Record<Exclude<AppLocale, 'zh-CN'>, {
+  outlines: Record<string, RawMarkdownLoader>;
+  chapters: Record<string, RawMarkdownLoader>;
+  lessons: Record<string, RawMarkdownLoader>;
+}>> = {
+  'zh-TW': {
+    outlines: import.meta.glob('../../../Course/locales/zh-TW/15/*/course-outline.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+    chapters: import.meta.glob('../../../Course/locales/zh-TW/15/*/*/index.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+    lessons: import.meta.glob('../../../Course/locales/zh-TW/15/*/*/lessons/*.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+  },
+  en: {
+    outlines: import.meta.glob('../../../Course/locales/en/15/*/course-outline.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+    chapters: import.meta.glob('../../../Course/locales/en/15/*/*/index.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+    lessons: import.meta.glob('../../../Course/locales/en/15/*/*/lessons/*.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+  },
+  fr: {
+    outlines: import.meta.glob('../../../Course/locales/fr/15/*/course-outline.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+    chapters: import.meta.glob('../../../Course/locales/fr/15/*/*/index.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+    lessons: import.meta.glob('../../../Course/locales/fr/15/*/*/lessons/*.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+  },
+  es: {
+    outlines: import.meta.glob('../../../Course/locales/es/15/*/course-outline.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+    chapters: import.meta.glob('../../../Course/locales/es/15/*/*/index.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+    lessons: import.meta.glob('../../../Course/locales/es/15/*/*/lessons/*.md', { query: '?raw', import: 'default' }) as Record<string, RawMarkdownLoader>,
+  },
+};
 
 const aiCourseLearningMapModules = import.meta.glob('../../../Course/15/*/assets/learning-map.svg', {
   eager: true,
@@ -154,76 +155,15 @@ const aiCourseLearningMapModules = import.meta.glob('../../../Course/15/*/assets
 }) as Record<string, string>;
 
 const fdeChapterModules = import.meta.glob('../../../Course/ForwardDeployedEngineer/AI_FDE_Course*/[0-9][0-9]-*.md', {
-  eager: true,
   query: '?raw',
   import: 'default',
-}) as Record<string, string>;
+}) as Record<string, RawMarkdownLoader>;
 
 const fdeAssetModules = import.meta.glob('../../../Course/ForwardDeployedEngineer/AI_FDE_Course*/assets/*.{png,jpg,jpeg,webp}', {
   eager: true,
   query: '?url',
   import: 'default',
 }) as Record<string, string>;
-
-function localisedSource(
-  modules: Record<string, string>,
-  courseId: string,
-): CourseSource {
-  const coursePath = `/${courseId}/`;
-  const courseModules = Object.fromEntries(Object.entries(modules).filter(([path]) => path.includes(coursePath)));
-  return {
-    outline: Object.entries(courseModules).find(([path]) => path.endsWith('/course-outline.md'))?.[1] ?? '',
-    chapterModules: Object.fromEntries(Object.entries(courseModules).filter(([path]) => /\/[^/]+\/index\.md$/.test(path))),
-    lessonModules: Object.fromEntries(Object.entries(courseModules).filter(([path]) => /\/lessons\/[^/]+\.md$/.test(path))),
-  };
-}
-
-const zhTwModules = import.meta.glob('../../../Course/locales/zh-TW/**/*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
-const enModules = import.meta.glob('../../../Course/locales/en/**/*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
-const frModules = import.meta.glob('../../../Course/locales/fr/**/*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
-const esModules = import.meta.glob('../../../Course/locales/es/**/*.md', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
-
-const defaultSources: Record<'claude-code-guide' | 'hermes-agent-guide' | 'Codex', CourseSource> = {
-  'claude-code-guide': {
-    outline: outlineRaw,
-    chapterModules: claudeChapterModules,
-    lessonModules: claudeLessonModules,
-  },
-  'hermes-agent-guide': {
-    outline: hermesOutlineRaw,
-    chapterModules: hermesChapterModules,
-    lessonModules: hermesLessonModules,
-  },
-  Codex: {
-    outline: codexOutlineRaw,
-    chapterModules: codexChapterModules,
-    lessonModules: codexLessonModules,
-  },
-};
-
-const localeSources: Record<AppLocale, typeof defaultSources> = {
-  'zh-CN': defaultSources,
-  'zh-TW': {
-    'claude-code-guide': localisedSource(zhTwModules, 'claude-code-guide'),
-    'hermes-agent-guide': localisedSource(zhTwModules, 'hermes-agent-guide'),
-    Codex: localisedSource(zhTwModules, 'Codex'),
-  },
-  en: {
-    'claude-code-guide': localisedSource(enModules, 'claude-code-guide'),
-    'hermes-agent-guide': localisedSource(enModules, 'hermes-agent-guide'),
-    Codex: localisedSource(enModules, 'Codex'),
-  },
-  fr: {
-    'claude-code-guide': localisedSource(frModules, 'claude-code-guide'),
-    'hermes-agent-guide': localisedSource(frModules, 'hermes-agent-guide'),
-    Codex: localisedSource(frModules, 'Codex'),
-  },
-  es: {
-    'claude-code-guide': localisedSource(esModules, 'claude-code-guide'),
-    'hermes-agent-guide': localisedSource(esModules, 'hermes-agent-guide'),
-    Codex: localisedSource(esModules, 'Codex'),
-  },
-};
 
 const LAB_IDS = [
   '00-environment-check',
@@ -443,9 +383,9 @@ function fdeSummary(body: string) {
     ?.replace(/[*_`]/g, '').slice(0, 220) ?? '';
 }
 
-function buildFdeCourse(locale: AppLocale): Course {
+function buildFdeCourseFromSources(locale: AppLocale, sourceModules: Record<string, string>): Course {
   const directory = fdeDirectoryByLocale[locale];
-  const chapterEntries = Object.entries(fdeChapterModules)
+  const chapterEntries = Object.entries(sourceModules)
     .filter(([path]) => path.includes(`/ForwardDeployedEngineer/${directory}/`))
     .sort(([left], [right]) => left.localeCompare(right));
   const interactionTypes: NonNullable<Lesson['interaction']>[] = ['choice', 'sort', 'slider', 'compare', 'sequence', 'sort'];
@@ -506,47 +446,35 @@ function buildFdeCourse(locale: AppLocale): Course {
   };
 }
 
+function buildFdeCourseShell(locale: AppLocale): Course {
+  const copy = fdeCopy[locale];
+  return {
+    id: 'forward-deployed-engineering',
+    ...copy,
+    difficulty: 'Advanced',
+    lessons: 61,
+    access: ['free'],
+    imageUrl: fdeCoverByLocale[locale],
+    authorIconText: 'FDE',
+    authorDomain: 'studyai.now',
+    duration: '10-12 weeks',
+    skills: [...new Set(fdeSkillsByChapter.flat())],
+    chapters: [],
+  };
+}
+
 type CourseCopy = Pick<Course, 'title' | 'subtitle' | 'description' | 'topic' | 'status'>;
 
 function courseDirectoryFromPath(path: string) {
-  return path.match(/\/Course\/15\/([^/]+)\//)?.[1] ?? '';
+  return path.match(/\/Course\/(?:locales\/[^/]+\/15\/|15\/)([^/]+)\//)?.[1] ?? '';
 }
 
-function buildAiPracticeCourses(): Course[] {
-  return Object.entries(aiCourseOutlineModules)
-    .sort(([left], [right]) => left.localeCompare(right, 'zh-CN'))
-    .map(([outlinePath, outline]) => {
-      const directory = courseDirectoryFromPath(outlinePath);
-      const { meta } = parseFrontmatter(outline);
-      const difficulty = stringMeta(meta, 'difficulty', 'Beginner');
-      const access = arrayMeta(meta, 'access').filter((value): value is CourseAccess => value === 'free' || value === 'pro');
-      const chapterModules = Object.fromEntries(Object.entries(aiCourseChapterModules).filter(([path]) => courseDirectoryFromPath(path) === directory));
-      const lessonModules = Object.fromEntries(Object.entries(aiCourseLessonModules).filter(([path]) => courseDirectoryFromPath(path) === directory));
-      const imageUrl = courseCover(`${directory}-cover`);
-      const learningMapUrl = Object.entries(aiCourseLearningMapModules).find(([path]) => courseDirectoryFromPath(path) === directory)?.[1];
-      const chapters = buildCourseChapters({ chapterModules, lessonModules, minChapter: 1, maxChapter: 10 });
-      const id = stringMeta(meta, 'id', directory.replace(/^\d{2}-/, ''));
-
-      return {
-        id,
-        title: stringMeta(meta, 'title', id),
-        subtitle: stringMeta(meta, 'subtitle'),
-        description: stringMeta(meta, 'description'),
-        topic: stringMeta(meta, 'topic', 'AI 实战'),
-        difficulty: (['Beginner', 'Intermediate', 'Advanced'].includes(difficulty) ? difficulty : 'Beginner') as CourseDifficulty,
-        lessons: chapters.reduce((total, chapter) => total + chapter.lessons.length, 0),
-        status: stringMeta(meta, 'status', '已上线'),
-        access: access.length ? access : ['free'],
-        imageUrl,
-        learningMapUrl,
-        authorIconText: `AI${stringMeta(meta, 'id').slice(0, 1).toUpperCase()}`,
-        authorDomain: 'studyai.now',
-        audience: stringMeta(meta, 'audience'),
-        duration: stringMeta(meta, 'duration'),
-        skills: arrayMeta(meta, 'skills'),
-        chapters,
-      };
-    });
+function buildAiPracticeCourses(locale: AppLocale): Course[] {
+  // Detailed practice courses are intentionally asynchronous; catalogue cards
+  // use the compact `courseCatalog.ts` data instead of eagerly importing 450
+  // lesson bodies into every learner's browser.
+  void locale;
+  return [];
 }
 
 const courseCopy: Record<AppLocale, Record<'claude' | 'hermes' | 'codex' | 'vibe' | 'agents' | 'rag', CourseCopy>> = {
@@ -592,75 +520,208 @@ const courseCopy: Record<AppLocale, Record<'claude' | 'hermes' | 'codex' | 'vibe
   },
 };
 
-const courseCache = new Map<AppLocale, Course[]>();
+const aiPracticeCourseCache = new Map<string, Promise<Course | undefined>>();
+const fdeCourseCache = new Map<AppLocale, Promise<Course | undefined>>();
+const coreCourseCache = new Map<string, Promise<Course | undefined>>();
 
-export function getCatalogCourses(locale: AppLocale = 'zh-CN') {
-  const cached = courseCache.get(locale);
-  if (cached) return cached;
+const coreCourseDefinitions = [
+  { id: 'claude-code-guide', directory: 'claude-code-guide', copy: 'claude', minChapter: 1, maxChapter: 15, expectedChapters: 15, access: ['free', 'pro'] as CourseAccess[], cover: 'claude-code-guide-cover', icon: 'AI' },
+  { id: 'hermes-agent-guide', directory: 'hermes-agent-guide', copy: 'hermes', minChapter: 0, maxChapter: 19, expectedChapters: 20, access: ['free', 'pro'] as CourseAccess[], cover: 'hermes-agent-guide-cover', icon: 'HA' },
+  { id: 'codex-tutorial', directory: 'Codex', copy: 'codex', minChapter: 0, maxChapter: 19, expectedChapters: 20, access: ['free', 'pro'] as CourseAccess[], cover: 'codex-cover', icon: 'CX' },
+] as const;
 
-  const sources = localeSources[locale];
-  const sourceOrDefault = (courseId: keyof typeof defaultSources) =>
-    Object.keys(sources[courseId].chapterModules).length === Object.keys(defaultSources[courseId].chapterModules).length &&
-    Object.keys(sources[courseId].lessonModules).length === Object.keys(defaultSources[courseId].lessonModules).length
-      ? sources[courseId]
-      : defaultSources[courseId];
-  const claudeSource = sourceOrDefault('claude-code-guide');
-  const hermesSource = sourceOrDefault('hermes-agent-guide');
-  const codexSource = sourceOrDefault('Codex');
-  const claudeChapters = buildCourseChapters({ chapterModules: claudeSource.chapterModules, lessonModules: claudeSource.lessonModules, maxChapter: 15, minChapter: 1 });
-  const hermesChapters = buildCourseChapters({ chapterModules: hermesSource.chapterModules, lessonModules: hermesSource.lessonModules, maxChapter: 19, minChapter: 0 });
-  const codexChapters = buildCourseChapters({ chapterModules: codexSource.chapterModules, lessonModules: codexSource.lessonModules, maxChapter: 19, minChapter: 0 });
-  const copy = courseCopy[locale];
-  const makeCourse = (id: string, content: CourseCopy, chapters: Chapter[], difficulty: CourseDifficulty, access: CourseAccess[], imageUrl: string, authorIconText: string): Course => ({
-    id, ...content, difficulty, lessons: chapters.reduce((total, chapter) => total + chapter.lessons.length, 0), access, imageUrl, authorIconText, authorDomain: 'studyai.now', skills: [], chapters,
-  });
-  const claude = makeCourse('claude-code-guide', copy.claude, claudeChapters, 'Beginner', ['free', 'pro'], courseCover('claude-code-guide-cover'), 'AI');
-  const hermes = makeCourse('hermes-agent-guide', copy.hermes, hermesChapters, 'Beginner', ['free', 'pro'], courseCover('hermes-agent-guide-cover'), 'HA');
-  const codex = makeCourse('codex-tutorial', copy.codex, codexChapters, 'Beginner', ['free', 'pro'], courseCover('codex-cover'), 'CX');
-  const fde = buildFdeCourse(locale);
-  const courses = [
-    claude,
-    hermes,
-    codex,
-    fde,
-    ...buildAiPracticeCourses(),
-  ];
-  courseCache.set(locale, courses);
-  return courses;
+function sourceFromModules(modules: Record<string, string>, directory: string): CourseSource {
+  const coursePath = `/${directory}/`;
+  const courseModules = Object.fromEntries(Object.entries(modules).filter(([path]) => path.includes(coursePath)));
+  return {
+    outline: Object.entries(courseModules).find(([path]) => path.endsWith('/course-outline.md'))?.[1] ?? '',
+    chapterModules: Object.fromEntries(Object.entries(courseModules).filter(([path]) => /\/[^/]+\/index\.md$/.test(path))),
+    lessonModules: Object.fromEntries(Object.entries(courseModules).filter(([path]) => /\/lessons\/[^/]+\.md$/.test(path))),
+  };
 }
 
-export function getCourseOutline(courseId: 'claude-code-guide' | 'hermes-agent-guide' | 'Codex', locale: AppLocale = 'zh-CN') {
-  const source = localeSources[locale][courseId];
-  return source.outline || defaultSources[courseId].outline;
+function emptyCourse(courseId: string, locale: AppLocale): Course {
+  const content = courseCopy[locale].claude;
+  return {
+    id: courseId || 'loading', ...content, difficulty: 'Beginner', lessons: 0,
+    access: ['free'], imageUrl: '', authorIconText: 'AI', authorDomain: 'studyai.now', skills: [], chapters: [],
+  };
+}
+
+async function loadCoreSource(directory: string, locale: AppLocale) {
+  const modules = locale === 'zh-CN' ? coreSourceModules : coreLocalizedModules[locale];
+  if (!modules) return { outline: '', chapterModules: {}, lessonModules: {} } as CourseSource;
+  const entries = Object.entries(modules).filter(([path]) => path.includes(`/${directory}/`));
+  const loaded = await Promise.all(entries.map(async ([path, load]) => [path, await load()] as const));
+  return sourceFromModules(Object.fromEntries(loaded), directory);
+}
+
+function isCompleteCoreSource(source: CourseSource, definition: (typeof coreCourseDefinitions)[number]) {
+  if (!source.outline || !Object.keys(source.lessonModules).length) return false;
+  const chapters = buildCourseChapters({
+    chapterModules: source.chapterModules,
+    lessonModules: source.lessonModules,
+    minChapter: definition.minChapter,
+    maxChapter: definition.maxChapter,
+  });
+  // Some core course folders include an introduction or appendix outside the
+  // learner route range. Validate the routed chapters, not every Markdown
+  // file in that directory.
+  return chapters.length === definition.expectedChapters && chapters.every((chapter) => chapter.lessons.length > 0);
+}
+
+async function loadCoreCourse(courseId: string, locale: AppLocale): Promise<Course | undefined> {
+  const definition = coreCourseDefinitions.find((item) => item.id === courseId);
+  if (!definition) return undefined;
+  const key = `${locale}:${courseId}`;
+  const cached = coreCourseCache.get(key);
+  if (cached) return cached;
+  const pending = (async () => {
+    const localized = await loadCoreSource(definition.directory, locale);
+    const source = isCompleteCoreSource(localized, definition)
+      ? localized
+      : locale === 'zh-CN' ? undefined : await loadCoreSource(definition.directory, 'zh-CN');
+    if (!source || !isCompleteCoreSource(source, definition)) return undefined;
+    const chapters = buildCourseChapters({ chapterModules: source.chapterModules, lessonModules: source.lessonModules, maxChapter: definition.maxChapter, minChapter: definition.minChapter });
+    if (chapters.length !== definition.expectedChapters) return undefined;
+    return {
+      id: definition.id,
+      ...courseCopy[locale][definition.copy],
+      difficulty: 'Beginner',
+      lessons: chapters.reduce((total, chapter) => total + chapter.lessons.length, 0),
+      access: definition.access,
+      imageUrl: courseCover(definition.cover),
+      authorIconText: definition.icon,
+      authorDomain: 'studyai.now',
+      skills: [],
+      chapters,
+    };
+  })().catch(() => undefined);
+  coreCourseCache.set(key, pending);
+  return pending;
+}
+
+/** @deprecated Course outlines are now loaded through `loadCourse` on demand. */
+export function getCatalogCourses(_locale: AppLocale = 'zh-CN') { return [] as Course[]; }
+export function getCourseOutline(_courseId: 'claude-code-guide' | 'hermes-agent-guide' | 'Codex', _locale: AppLocale = 'zh-CN') { return ''; }
+
+async function loadRawModules(modules: Record<string, RawMarkdownLoader>, directory: string) {
+  const entries = Object.entries(modules).filter(([path]) => courseDirectoryFromPath(path) === directory);
+  const loaded = await Promise.all(entries.map(async ([path, load]) => [path, await load()] as const));
+  return Object.fromEntries(loaded) as Record<string, string>;
+}
+
+async function loadFdeCourse(locale: AppLocale): Promise<Course | undefined> {
+  const cached = fdeCourseCache.get(locale);
+  if (cached) return cached;
+  const directory = fdeDirectoryByLocale[locale];
+  const pending = Promise.all(
+    Object.entries(fdeChapterModules)
+      .filter(([path]) => path.includes(`/ForwardDeployedEngineer/${directory}/`))
+      .map(async ([path, load]) => [path, await load()] as const),
+  ).then((entries) => entries.length === 12 ? buildFdeCourseFromSources(locale, Object.fromEntries(entries)) : undefined)
+    .catch(() => undefined);
+  fdeCourseCache.set(locale, pending);
+  return pending;
+}
+
+async function loadAiPracticeCourse(courseId: string, locale: AppLocale): Promise<Course | undefined> {
+  const outlineEntries = Object.entries(locale === 'zh-CN' ? aiCourseOutlineModules : aiCourseLocalizedModules[locale]?.outlines ?? []);
+  const outlinePath = outlineEntries.find(([path]) => {
+    const directory = courseDirectoryFromPath(path);
+    return directory.replace(/^\d{2}-/, '') === courseId;
+  })?.[0];
+  if (!outlinePath) return undefined;
+  const directory = courseDirectoryFromPath(outlinePath);
+  const source = locale === 'zh-CN'
+    ? { outlines: aiCourseOutlineModules, chapters: aiCourseChapterModules, lessons: aiCourseLessonModules }
+    : aiCourseLocalizedModules[locale];
+  if (!source) return undefined;
+
+  const [outline, chapterModules, lessonModules] = await Promise.all([
+    source.outlines[outlinePath](),
+    loadRawModules(source.chapters, directory),
+    loadRawModules(source.lessons, directory),
+  ]);
+  // Do not silently present a Chinese body under a non-Chinese document URL.
+  // A locale becomes available only after every chapter and lesson is present.
+  if (Object.keys(chapterModules).length !== 10 || Object.keys(lessonModules).length !== 30) return undefined;
+
+  const { meta } = parseFrontmatter(outline);
+  const difficulty = stringMeta(meta, 'difficulty', 'Beginner');
+  const access = arrayMeta(meta, 'access').filter((value): value is CourseAccess => value === 'free' || value === 'pro');
+  const chapters = buildCourseChapters({ chapterModules, lessonModules, minChapter: 1, maxChapter: 10 });
+  if (chapters.length !== 10 || chapters.some((chapter) => chapter.lessons.length !== 3)) return undefined;
+  const id = stringMeta(meta, 'id', directory.replace(/^\d{2}-/, ''));
+  const seoCopy = getCourseSeoCopy(id, locale);
+  const learningMapUrl = Object.entries(aiCourseLearningMapModules).find(([path]) => courseDirectoryFromPath(path) === directory)?.[1];
+
+  return {
+    id,
+    title: stringMeta(meta, 'title', seoCopy?.title ?? id),
+    subtitle: stringMeta(meta, 'subtitle', seoCopy?.subtitle ?? ''),
+    description: stringMeta(meta, 'description', seoCopy?.description ?? ''),
+    topic: stringMeta(meta, 'topic', seoCopy?.topic ?? 'AI practice'),
+    difficulty: (['Beginner', 'Intermediate', 'Advanced'].includes(difficulty) ? difficulty : 'Beginner') as CourseDifficulty,
+    lessons: chapters.reduce((total, chapter) => total + chapter.lessons.length, 0),
+    status: courseCopy[locale].claude.status,
+    access: access.length ? access : ['free'],
+    imageUrl: courseCover(`${directory}-cover`),
+    learningMapUrl,
+    authorIconText: `AI${id.slice(0, 1).toUpperCase()}`,
+    authorDomain: 'studyai.now',
+    audience: stringMeta(meta, 'audience'),
+    duration: stringMeta(meta, 'duration'),
+    // Stable graph identifiers remain language-neutral; UI labels are localised
+    // by the JD/knowledge-graph presentation layer.
+    skills: arrayMeta(meta, 'skills'),
+    chapters,
+  };
+}
+
+/** Loads only the selected practice course and locale, never all 450 lessons. */
+export function loadCourse(courseId: string, locale: AppLocale = 'zh-CN'): Promise<Course | undefined> {
+  if (courseId === 'forward-deployed-engineering') return loadFdeCourse(locale);
+  if (coreCourseDefinitions.some((item) => item.id === courseId)) return loadCoreCourse(courseId, locale);
+  const key = `${locale}:${courseId}`;
+  const cached = aiPracticeCourseCache.get(key);
+  if (cached) return cached;
+  const pending = loadAiPracticeCourse(courseId, locale).catch(() => undefined);
+  aiPracticeCourseCache.set(key, pending);
+  return pending;
 }
 
 export function getCourse(courseId = 'claude-code-guide', locale: AppLocale = 'zh-CN') {
-  const courses = getCatalogCourses(locale);
-  return courses.find((course) => course.id === courseId) ?? courses[0];
+  return emptyCourse(courseId, locale);
+}
+
+export function findCourse(_courseId = 'claude-code-guide', _locale: AppLocale = 'zh-CN') {
+  return undefined;
 }
 
 export function getChapter(course: Course, chapterId?: string) {
-  return (
-    course.chapters.find(
-      (chapter) =>
-        chapter.routeId === chapterId ||
-        chapter.slug === chapterId ||
-        chapter.chapter.toString().padStart(2, '0') === chapterId,
-    ) ??
-    course.chapters[0]
+  return findChapter(course, chapterId) ?? course.chapters[0];
+}
+
+export function findChapter(course: Course, chapterId?: string) {
+  if (!chapterId) return undefined;
+  return course.chapters.find(
+    (chapter) =>
+      chapter.routeId === chapterId ||
+      chapter.slug === chapterId ||
+      chapter.chapter.toString().padStart(2, '0') === chapterId,
   );
 }
 
 export function getLesson(chapter: Chapter, lessonId?: string) {
-  if (!lessonId || !chapter.lessons.length) {
-    return undefined;
-  }
+  return findLesson(chapter, lessonId);
+}
 
-  return (
-    chapter.lessons.find(
+export function findLesson(chapter: Chapter, lessonId?: string) {
+  if (!lessonId || !chapter.lessons.length) return undefined;
+  return chapter.lessons.find(
       (lesson) =>
         lesson.routeId === lessonId || lesson.slug === lessonId || String(lesson.lesson) === lessonId,
-    ) ?? chapter.lessons[0]
   );
 }
 

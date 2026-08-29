@@ -14,6 +14,8 @@
     "verify:locales": "node scripts/verify-course-locales.mjs",
     "generate:sitemap": "tsx scripts/generate-localized-sitemap.ts",
     "verify:localized-seo": "tsx scripts/verify-localized-seo.ts",
+    "verify:course-progressive-loading": "tsx scripts/verify-course-progressive-loading.ts",
+    "verify:course-bundle": "node scripts/verify-course-bundle-budget.mjs",
     "verify:seo-foundation": "tsx scripts/verify-seo-foundation.ts",
     "verify:codex": "node scripts/verify-codex-curriculum.mjs",
     "verify:jobs": "tsx scripts/verify-job-skill-map.ts",

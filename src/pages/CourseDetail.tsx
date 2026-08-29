@@ -1,39 +1,63 @@
 import { useEffect, useState } from 'react';
 import { PanelLeftOpen, X } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { CourseNavbar } from '../components/course/CourseNavbar';
 import { SidebarNavigation } from '../components/course/SidebarNavigation';
 import { ContentArea } from '../components/course/ContentArea';
 import { TOC } from '../components/course/TOC';
 import { CourseFooter } from '../components/course/CourseFooter';
 import { extractHeadings } from '../components/course/MarkdownRenderer';
-import { getChapter, getCourse, getLesson, getLessonNeighbors } from '../data/courseContent';
+import { findChapter, findLesson, getChapter, getCourse, getLessonNeighbors, loadCourse } from '../data/courseContent';
 import { useTranslation } from 'react-i18next';
 import type { AppLocale } from '../data/courseContent';
 import { fetchCourseAccess, type CourseAccess } from '../lib/account';
 import { trackCourseClick } from '../lib/courseAnalytics';
+import { getCatalogCourse } from '../data/courseCatalog';
+import { localeFromPathname, localizedPublicPath } from '../lib/localeRoutes';
+import { NotFound } from './NotFound';
 
 export function CourseDetail() {
   const { courseId, chapterId, lessonId } = useParams();
+  const location = useLocation();
   const { t, i18n } = useTranslation();
+  // Public URLs own their language; do not wait for the async i18n sync to
+  // decide which Markdown corpus is available for this route.
+  const locale = localeFromPathname(location.pathname) ?? (i18n.resolvedLanguage ?? i18n.language) as AppLocale;
   const [isChapterMenuOpen, setIsChapterMenuOpen] = useState(false);
   const [access, setAccess] = useState<CourseAccess | null>(null);
-  const course = getCourse(courseId, (i18n.resolvedLanguage ?? i18n.language) as AppLocale);
-  const chapter = getChapter(course, chapterId);
-  const lesson = getLesson(chapter, lessonId);
+  const [matchedCourse, setMatchedCourse] = useState<ReturnType<typeof getCourse> | undefined>();
+  const [courseLoading, setCourseLoading] = useState(true);
+  useEffect(() => {
+    let active = true;
+    setCourseLoading(true);
+    setMatchedCourse(undefined);
+    void loadCourse(courseId ?? '', locale).then((course) => {
+      if (!active) return;
+      setMatchedCourse(course);
+      setCourseLoading(false);
+    });
+    return () => { active = false; };
+  }, [courseId, locale]);
+  const course = matchedCourse ?? getCourse(undefined, locale);
+  const matchedChapter = matchedCourse ? findChapter(matchedCourse, chapterId) : undefined;
+  const chapter = matchedChapter ?? getChapter(course, undefined);
+  const matchedLesson = matchedChapter && lessonId ? findLesson(matchedChapter, lessonId) : undefined;
+  const lesson = matchedLesson;
+  const validRoute = Boolean(matchedCourse && matchedChapter && (!lessonId || matchedLesson));
   const { previous, next } = getLessonNeighbors(course, lesson);
   const markdown = lesson?.body ?? chapter.body;
 
   useEffect(() => {
-    trackCourseClick(course.id, chapter.chapter);
-  }, [course.id, chapter.chapter, lesson?.routeId]);
+    if (validRoute) trackCourseClick(course.id, chapter.chapter);
+  }, [course.id, chapter.chapter, lesson?.routeId, validRoute]);
 
   useEffect(() => {
+    if (!validRoute) return;
     let active = true;
     setAccess(null);
     fetchCourseAccess(course.id).then((result) => active && setAccess(result)).catch(() => active && setAccess({ authenticated: false, courseManaged: true, chapters: [] }));
     return () => { active = false; };
-  }, [course.id]);
+  }, [course.id, validRoute]);
 
   const chapterAccess = access?.chapters.find((item) => item.chapterNumber === chapter.chapter);
   // Do not reveal managed content while the access request is pending or failed.
@@ -122,6 +146,15 @@ export function CourseDetail() {
       sendProgress(true);
     };
   }, [access?.authenticated, course.id, chapter.chapter, lesson?.routeId]);
+
+  if (courseLoading) return <div data-testid="course-loading" className="min-h-[38vh] px-5 py-16 text-center text-on-surface-variant">{t('common.loading')}</div>;
+  if (!matchedCourse && courseId && chapterId && locale !== 'zh-CN' && getCatalogCourse(courseId, locale)) {
+    const sourcePath = lessonId
+      ? `/courses/${encodeURIComponent(courseId)}/chapters/${encodeURIComponent(chapterId)}/lessons/${encodeURIComponent(lessonId)}`
+      : `/courses/${encodeURIComponent(courseId)}/chapters/${encodeURIComponent(chapterId)}`;
+    return <Navigate replace to={localizedPublicPath(sourcePath, 'zh-CN')} />;
+  }
+  if (!validRoute) return <NotFound />;
 
   return (
     <div className="bg-background text-on-background min-h-screen flex flex-col font-body-md text-body-md">
