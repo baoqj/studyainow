@@ -67,7 +67,7 @@ BEGIN
   SELECT RAISE(ABORT, 'invalid article status transition');
 END;
 
-CREATE TRIGGER article_human_approval_guard
+CREATE TRIGGER article_active_revision_guard
 BEFORE UPDATE OF status ON article
 WHEN OLD.status <> NEW.status
   AND EXISTS (
@@ -77,27 +77,49 @@ WHEN OLD.status <> NEW.status
       AND to_status = NEW.status
       AND requires_human_approval = 1
   )
+  AND NEW.active_revision_id IS NULL
 BEGIN
-  SELECT CASE
-    WHEN NEW.active_revision_id IS NULL
-      THEN RAISE(ABORT, 'active revision required')
-    WHEN NOT EXISTS (
-      SELECT 1
-      FROM article_revision AS revision
-      JOIN article_approval AS approval ON approval.revision_id = revision.id
-      WHERE revision.id = NEW.active_revision_id
-        AND revision.article_id = NEW.id
-        AND approval.decision = 'approved'
-        AND approval.actor_role IN ('publisher', 'admin')
-    )
-      THEN RAISE(ABORT, 'publisher approval required')
-    WHEN NEW.status IN ('published', 'corrected', 'distributed')
-      AND (
-        NEW.published_revision_id IS NULL
-        OR NEW.published_revision_id <> NEW.active_revision_id
-      )
-      THEN RAISE(ABORT, 'published revision must match active revision')
-  END;
+  SELECT RAISE(ABORT, 'active revision required');
+END;
+
+CREATE TRIGGER article_publisher_approval_guard
+BEFORE UPDATE OF status ON article
+WHEN OLD.status <> NEW.status
+  AND EXISTS (
+    SELECT 1
+    FROM article_status_transition
+    WHERE from_status = OLD.status
+      AND to_status = NEW.status
+      AND requires_human_approval = 1
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM article_revision AS revision
+    JOIN article_approval AS approval ON approval.revision_id = revision.id
+    WHERE revision.id = NEW.active_revision_id
+      AND revision.article_id = NEW.id
+      AND approval.decision = 'approved'
+      AND approval.actor_role IN ('publisher', 'admin')
+  )
+BEGIN
+  SELECT RAISE(ABORT, 'publisher approval required');
+END;
+
+CREATE TRIGGER article_published_revision_guard
+BEFORE UPDATE OF status ON article
+WHEN OLD.status <> NEW.status
+  AND NEW.status IN ('published', 'corrected', 'distributed')
+  AND EXISTS (
+    SELECT 1
+    FROM article_status_transition
+    WHERE from_status = OLD.status AND to_status = NEW.status
+  )
+  AND (
+    NEW.published_revision_id IS NULL
+    OR NEW.published_revision_id <> NEW.active_revision_id
+  )
+BEGIN
+  SELECT RAISE(ABORT, 'published revision must match active revision');
 END;
 
 CREATE TRIGGER article_revision_immutable_update
