@@ -1,8 +1,10 @@
 # news.studyai.now Codex 开发计划
 
-> 状态：等待用户确认，尚未开始功能开发
+> 状态：P0-0 已完成并部署；等待用户指令开始 P0-1
 >
 > 编制日期：2026-09-03
+>
+> P0-0 验收记录：[`P0-0_RELEASE_REPORT.zh-CN.md`](./P0-0_RELEASE_REPORT.zh-CN.md)
 >
 > Git 根：`/Users/aibao/Documents/Project/AI-course/studyainow/Code`
 >
@@ -10,9 +12,9 @@
 >
 > 后端：`studyai-news-api`
 
-## 1. 本轮结论
+## 1. 初始规划结论（2026-09-03）
 
-本轮只完成了 PRD 阅读、现状审计、目录边界和 Codex 执行计划，没有创建应用脚手架、Cloudflare 资源、数据库迁移或业务代码。
+计划编制轮只完成了 PRD 阅读、现状审计、目录边界和 Codex 执行计划；P0-0 已在后续经用户确认后实施，结果见验收记录。
 
 工作区、当前 Git 历史和全部本地分支中均未发现已有的 `news.studyai.now`、`studyai-news-web`、`studyai-news-api` 或 `/admin/news` 实现。因此没有可安全移动的 News 源代码。本轮创建两个空项目边界，以后所有 News 代码分别进入：
 
@@ -32,7 +34,7 @@ studyainow/Code/
 | 项目 | 已核实状态 | 对 News 的影响 |
 |---|---|---|
 | 真实 Git 根 | `studyainow/Code` | 两个 News 项目由同一父仓库版本管理 |
-| 当前分支 | `main`；本轮目录/计划准备提交使本地领先 `origin/main` 1 个提交，尚未推送 | 未创建功能开发分支，也没有业务代码提交 |
+| P0-0 开发分支 | `feat/news-p0-foundation`，已推送至 `origin` | News 规划、API、Web 使用独立原子提交；未混入 Jobs 改动 |
 | 主工作区未提交改动 | `functions/_lib/jobs.ts`、`scripts/verify-job-presentation.ts`、`src/worker.ts`、`migrations/0043_publish_complete_official_job_descriptions.sql` | 视为已有 Jobs 工作；不得移动、覆盖或混入 News 提交 |
 | 其他工作树 | `Code-course15-locales`、`Code-curriculum-reliability` | 是同一仓库的课程发布工作树，不是 News 代码，不做整理 |
 | News 历史代码 | 当前文件、Git 历史、本地分支均未找到 | 从明确脚手架开始，不做来源不明的拼接 |
@@ -194,6 +196,8 @@ test(news-api): ...
 - P0 技能/课程关系可先使用经人工导入的只读规范快照，正式实时契约最晚在上线 Gate 前完成。
 
 ### P0-0：仓库与双 Worker 基线
+
+状态：**已完成（2026-09-03）**。Staging 与 Production 均已部署并完成远程回归，详见 P0-0 验收记录。
 
 - 输出：两个独立项目脚手架、固定 Node 版本、`wrangler.jsonc`、dev/staging/prod 配置、Web→API Service Binding、健康检查、OpenAPI 骨架。
 - 测试：各项目 typecheck/build；本地双 Worker连通；Web `/api/news/v1/health` 返回 API 版本与 trace ID；生产配置 dry-run 不包含秘密值。
