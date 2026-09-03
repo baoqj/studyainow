@@ -1,40 +1,49 @@
 # studyai-news-api
 
-`studyai-news-api` is the reserved, version-controlled directory for the Cloudflare Worker that will provide the News API, editorial workflow and asynchronous content pipeline.
+Cloudflare Worker backend for StudyAI News.
 
-Current status: **repository boundary only; implementation has not started**.
+P0-0 status: API foundation with a versioned health endpoint and OpenAPI contract. News schema, ingestion and editorial business logic begin in P0-1 and later milestones.
 
-## Ownership
+## Boundary
 
-This project will own:
+This project owns:
 
 - `/api/news/v1/*` public APIs;
 - `/api/admin/news/*` editorial APIs;
-- News D1 migrations and domain data;
-- source discovery, compliant fetching, normalization, clustering and Claim Ledger records;
-- classification, skill/course link suggestions and AI run provenance;
-- Cloudflare Queues and Workflows orchestration;
-- R2 media/source-snapshot metadata, podcast generation and publication state;
-- audit logs, idempotency records, monitoring and release checks.
+- future News D1 migrations, source ingestion, Claim Ledger, workflow, audit and media state;
+- the API contract in `openapi/news-api.yaml`.
 
-This project will not own:
+It does not own public page rendering or StudyAINow user, organization, skill, course and entitlement master data. It must never write directly to `studyainow-db`.
 
-- public page rendering or the editor UI;
-- StudyAINow user, organization, skill, course or entitlement master data;
-- direct writes to `studyainow-db`;
-- automatic publication that bypasses the required human approval gate.
+The only Git root is the parent repository at `studyainow/Code`. Do not initialize a nested repository.
 
-## Git boundary
+## Runtime names
 
-- The only Git root is the parent repository at `studyainow/Code`.
-- Do not run `git init` here and do not add a nested repository.
-- Commit scope: `news-api`.
-- Worker name: `studyai-news-api`.
-- The API Worker should be reachable from `studyai-news-web` through a Service Binding rather than a second public origin.
+| Environment | Worker |
+|---|---|
+| Development | `studyai-news-api-dev` |
+| Staging | `studyai-news-api-staging` |
+| Production | `studyai-news-api` |
 
-## Planning source
+The production Worker is intentionally private and is called by `studyai-news-web` through the `NEWS_API` Service Binding.
 
-- Product requirements: `../../PRD/News/`
-- Approved execution plan: `../docs/news/CODEX_DEVELOPMENT_PLAN.zh-CN.md`
+## Commands
 
-Implementation must wait for explicit plan approval.
+```bash
+npm install
+npm run dev
+npm run typecheck
+npm test
+npm run contract:check
+npm run check
+npm run deploy:staging
+npm run deploy
+```
+
+`npm run deploy` always runs the full local check and a production dry-run before deploying.
+
+## Current endpoints
+
+- `GET /api/news/v1/health`
+
+Product requirements remain in `../../PRD/News/`. The approved execution plan is `../docs/news/CODEX_DEVELOPMENT_PLAN.zh-CN.md`.
