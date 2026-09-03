@@ -44,6 +44,8 @@ blob-report/
 .env
 .env.*
 !.env.example
+.dev.vars
+.dev.vars.*
 *.local
 *.key
 *.pem
@@ -83,3 +85,5 @@ yarn-error.log*
 pnpm-debug.log*
 .idea/
 .vscode/
+.astro/
+*.tsbuildinfo
