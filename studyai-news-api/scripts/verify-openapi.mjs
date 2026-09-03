@@ -16,9 +16,10 @@ if (contract?.openapi !== '3.1.0') failures.push('OpenAPI version must be 3.1.0'
 if (contract?.info?.version !== packageJson.version) failures.push('Contract version must match package version');
 if (healthOperation?.operationId !== 'getNewsApiHealth') failures.push('Health operationId is missing');
 if (!healthOperation?.responses?.['200']) failures.push('Health 200 response is missing');
+if (!healthOperation?.responses?.['503']) failures.push('Health 503 response is missing');
 if (!healthOperation?.responses?.['405']) failures.push('Health 405 response is missing');
 
-for (const requiredField of ['ok', 'service', 'version', 'release', 'environment', 'traceId']) {
+for (const requiredField of ['ok', 'service', 'version', 'release', 'environment', 'database', 'traceId']) {
   if (!healthSchema?.required?.includes(requiredField)) {
     failures.push(`HealthResponse must require ${requiredField}`);
   }

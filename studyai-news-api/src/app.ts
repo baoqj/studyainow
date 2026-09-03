@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import type { Env } from './env';
+import { inspectNewsSchema } from './schema-health';
 import { resolveTraceId } from './trace';
 
-export const API_VERSION = '0.1.0';
+export const API_VERSION = '0.2.0';
 
 type Bindings = {
   Bindings: Env;
@@ -24,14 +25,33 @@ app.use('*', async (context, next) => {
   context.header('referrer-policy', 'no-referrer');
 });
 
-app.get('/api/news/v1/health', (context) => {
-  return context.json({
-    ok: true as const,
+app.get('/api/news/v1/health', async (context) => {
+  const database = await inspectNewsSchema(context.env.DB);
+  const baseResponse = {
     service: 'studyai-news-api' as const,
     version: API_VERSION,
     release: context.env.RELEASE_VERSION,
     environment: context.env.ENVIRONMENT,
+    database,
     traceId: context.get('traceId'),
+  };
+
+  if (!database.ok) {
+    return context.json({
+      ok: false as const,
+      ...baseResponse,
+      error: {
+        code: 'schema_unavailable' as const,
+        message: 'News database schema is unavailable or outdated',
+      },
+    }, 503, {
+      'cache-control': 'no-store',
+    });
+  }
+
+  return context.json({
+    ok: true as const,
+    ...baseResponse,
   }, 200, {
     'cache-control': 'no-store',
   });

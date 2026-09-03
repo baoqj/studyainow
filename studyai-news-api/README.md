@@ -2,7 +2,7 @@
 
 Cloudflare Worker backend for StudyAI News.
 
-P0-0 status: API foundation with a versioned health endpoint and OpenAPI contract. News schema, ingestion and editorial business logic begin in P0-1 and later milestones.
+P0-1 status: independent News D1 schema and human-gated article publication state machine. Ingestion and editorial HTTP APIs begin in P0-2 and later milestones.
 
 ## Boundary
 
@@ -19,11 +19,11 @@ The only Git root is the parent repository at `studyainow/Code`. Do not initiali
 
 ## Runtime names
 
-| Environment | Worker |
-|---|---|
-| Development | `studyai-news-api-dev` |
-| Staging | `studyai-news-api-staging` |
-| Production | `studyai-news-api` |
+| Environment | Worker | D1 |
+|---|---|---|
+| Development | `studyai-news-api-dev` | local persistence for `studyai-news-db-staging` |
+| Staging | `studyai-news-api-staging` | `studyai-news-db-staging` |
+| Production | `studyai-news-api` | `studyai-news-db` |
 
 The production Worker is intentionally private and is called by `studyai-news-web` through the `NEWS_API` Service Binding.
 
@@ -32,6 +32,8 @@ The production Worker is intentionally private and is called by `studyai-news-we
 ```bash
 npm install
 npm run dev
+npm run db:migrate:local
+npm run db:verify
 npm run typecheck
 npm test
 npm run contract:check
@@ -40,7 +42,13 @@ npm run deploy:staging
 npm run deploy
 ```
 
-`npm run deploy` always runs the full local check and a production dry-run before deploying.
+`npm run deploy:staging` and `npm run deploy` always run the full local check, apply pending migrations to the matching remote D1, and only then deploy the Worker. Released migration files are append-only and must not be edited in place.
+
+The health endpoint returns HTTP 503 until the bound database reports the expected schema version. This prevents application code from being treated as healthy before its migration is present.
+
+## Schema rollback
+
+P0-1 migrations create new, empty News-only databases and do not modify StudyAINow Core data. They are additive and intentionally have no destructive down migration. If the Worker release must be rolled back, deploy the prior Worker version and leave the new tables in place; follow-up schema changes must use a new forward migration. Before any later migration that changes production data, create and verify a D1 export or Time Travel recovery point.
 
 ## Current endpoints
 

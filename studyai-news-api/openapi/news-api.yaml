@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: StudyAI News API
-  version: 0.1.0
+  version: 0.2.0
   description: Versioned contract for the StudyAI News public and editorial APIs.
 servers:
   - url: https://news.studyai.now
@@ -12,7 +12,7 @@ paths:
       summary: Read API deployment health and version metadata
       responses:
         "200":
-          description: API is available
+          description: API and the expected News schema are available
           headers:
             X-Request-Id:
               schema:
@@ -21,6 +21,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: News schema is missing or does not match the application
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SchemaUnavailableResponse"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
 components:
@@ -34,6 +40,7 @@ components:
         - version
         - release
         - environment
+        - database
         - traceId
       properties:
         ok:
@@ -53,6 +60,71 @@ components:
             - staging
             - production
             - test
+        database:
+          $ref: "#/components/schemas/SchemaStatus"
+        traceId:
+          type: string
+    SchemaStatus:
+      type: object
+      additionalProperties: false
+      required:
+        - ok
+        - currentVersion
+        - expectedVersion
+      properties:
+        ok:
+          type: boolean
+        currentVersion:
+          oneOf:
+            - type: integer
+            - type: "null"
+        expectedVersion:
+          type: integer
+          minimum: 1
+    SchemaUnavailableResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - ok
+        - service
+        - version
+        - release
+        - environment
+        - database
+        - error
+        - traceId
+      properties:
+        ok:
+          type: boolean
+          const: false
+        service:
+          type: string
+          const: studyai-news-api
+        version:
+          type: string
+        release:
+          type: string
+        environment:
+          type: string
+          enum:
+            - development
+            - staging
+            - production
+            - test
+        database:
+          $ref: "#/components/schemas/SchemaStatus"
+        error:
+          type: object
+          additionalProperties: false
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              const: schema_unavailable
+            message:
+              type: string
         traceId:
           type: string
     ErrorResponse:

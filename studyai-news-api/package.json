@@ -1,6 +1,6 @@
 {
   "name": "studyai-news-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -10,20 +10,27 @@
   "scripts": {
     "dev": "wrangler dev --port 8788",
     "dev:staging": "wrangler dev --env staging --port 8788",
+    "db:migrate:local": "wrangler d1 migrations apply studyai-news-db-staging --local",
+    "db:migrate:staging": "wrangler d1 migrations apply studyai-news-db-staging --env staging --remote",
+    "db:migrate:production": "wrangler d1 migrations apply studyai-news-db --env production --remote",
+    "db:list:staging": "wrangler d1 migrations list studyai-news-db-staging --env staging --remote",
+    "db:list:production": "wrangler d1 migrations list studyai-news-db --env production --remote",
+    "db:verify": "vitest run test/schema.test.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "contract:check": "node scripts/verify-openapi.mjs",
     "deploy:dry-run": "wrangler deploy --env production --dry-run",
     "check": "npm run cf-typegen && npm run typecheck && npm test && npm run contract:check && npm run deploy:dry-run",
-    "deploy:staging": "npm run check && wrangler deploy --env staging",
-    "deploy": "npm run check && wrangler deploy --env production",
+    "deploy:staging": "npm run check && npm run db:migrate:staging && wrangler deploy --env staging",
+    "deploy": "npm run check && npm run db:migrate:production && wrangler deploy --env production",
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
     "hono": "^4.13.5"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "typescript": "~5.9.3",
     "vitest": "^5.0.0",
     "wrangler": "^4.129.0",

@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { API_VERSION, app } from '../src/app';
 import type { Env } from '../src/env';
 
+function schemaDatabase(version = '2'): D1Database {
+  return {
+    prepare: () => ({
+      first: async () => ({ value: version }),
+    }),
+  } as unknown as D1Database;
+}
+
 const testEnv: Env = {
+  DB: schemaDatabase(),
   ENVIRONMENT: 'test',
   RELEASE_VERSION: 'test-release',
 };
@@ -24,7 +33,31 @@ describe('StudyAI News API foundation', () => {
       version: API_VERSION,
       release: 'test-release',
       environment: 'test',
+      database: {
+        ok: true,
+        currentVersion: 2,
+        expectedVersion: 2,
+      },
       traceId: 'p0-0-test-trace',
+    });
+  });
+
+  it('returns 503 when the News schema is missing or outdated', async () => {
+    const response = await app.request('/api/news/v1/health', undefined, {
+      ...testEnv,
+      DB: schemaDatabase('1'),
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      database: {
+        ok: false,
+        currentVersion: 1,
+        expectedVersion: 2,
+      },
+      error: { code: 'schema_unavailable' },
     });
   });
 
