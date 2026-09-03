@@ -1,37 +1,51 @@
 # studyai-news-web
 
-`studyai-news-web` is the reserved, version-controlled directory for the Cloudflare Worker that will serve `news.studyai.now`.
+Cloudflare Worker frontend for `news.studyai.now`.
 
-Current status: **repository boundary only; implementation has not started**.
+P0-0 status: Astro/React foundation, server-rendered operational page and same-origin API forwarding through the `NEWS_API` Service Binding. Article, daily, podcast and editor features begin in later milestones.
 
-## Ownership
+## Boundary
 
-This project will own:
+This project owns:
 
-- the public news site and content templates;
-- the `/admin/news` editor UI;
-- server-rendered public pages and edge caching;
-- same-origin forwarding of `/api/news/v1/*` and `/api/admin/news/*` to the `studyai-news-api` Worker through a Cloudflare Service Binding;
-- browser-only interaction such as search UI, theme, sharing and the podcast player.
+- public and future `/admin/news` page rendering;
+- initial HTML, metadata and edge-facing responses;
+- browser interaction;
+- forwarding `/api/news/v1/*` and `/api/admin/news/*` to `studyai-news-api`.
 
-This project will not own:
+It does not own News D1 migrations, crawling, AI/TTS workflows, publication state or StudyAINow master data. It has no direct D1, R2, Queue, Workflow or Vectorize binding.
 
-- D1 migrations or direct D1 writes;
-- crawling, AI generation, TTS or publishing state machines;
-- source snapshots or podcast binaries;
-- StudyAINow user, skill, course or entitlement master data.
+The only Git root is the parent repository at `studyainow/Code`. Do not initialize a nested repository.
 
-## Git boundary
+## Runtime names
 
-- The only Git root is the parent repository at `studyainow/Code`.
-- Do not run `git init` here and do not add a nested repository.
-- Commit scope: `news-web`.
-- Worker name: `studyai-news-web`.
-- Production hostname: `news.studyai.now`.
+| Environment | Worker |
+|---|---|
+| Development | `studyai-news-web-dev` |
+| Staging | `studyai-news-web-staging` |
+| Production | `studyai-news-web` |
 
-## Planning source
+Production uses the custom domain `news.studyai.now`.
 
-- Product requirements: `../../PRD/News/`
-- Approved execution plan: `../docs/news/CODEX_DEVELOPMENT_PLAN.zh-CN.md`
+## Commands
 
-Implementation must wait for explicit plan approval.
+```bash
+npm install
+npm run dev
+npm run typecheck
+npm test
+npm run build
+npm run check
+npm run deploy:staging
+npm run deploy
+```
+
+`npm run deploy` always runs the full local check and a production dry-run before deploying.
+
+## Current routes
+
+- `GET /` — server-rendered foundation status
+- `ALL /api/news/v1/*` — forwarded to the API Worker
+- `ALL /api/admin/news/*` — reserved forwarding boundary
+
+Product requirements remain in `../../PRD/News/`. The approved execution plan is `../docs/news/CODEX_DEVELOPMENT_PLAN.zh-CN.md`.

@@ -1,0 +1,60 @@
+---
+import { env } from 'cloudflare:workers';
+import HealthPanel from '../components/HealthPanel';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { fetchNewsApiHealth } from '../lib/health';
+
+export const prerender = false;
+
+const result = await fetchNewsApiHealth(env.NEWS_API);
+const health = result.ok ? result.health : null;
+const message = result.ok ? null : result.message;
+---
+
+<BaseLayout
+  title="StudyAI News · 基础服务"
+  description="StudyAI News 正在建立可信、可追溯的 AI 新闻与能力地图。"
+>
+  <main>
+    <header class="site-header">
+      <a href="/" aria-label="StudyAI News 首页">
+        <span class="brand-mark" aria-hidden="true">S</span>
+        <span>StudyAI News</span>
+      </a>
+      <span class="phase-badge">FOUNDATION</span>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">AI 情报与能力地图</p>
+      <h1>把 AI 新闻变成<br /><em>能学、能练、能用</em>的能力。</h1>
+      <p class="hero-copy">
+        当前完成的是可部署的双 Worker 基线。新闻采集、Claim Ledger、编辑审核与公开内容将在后续单一里程碑中逐步上线。
+      </p>
+    </section>
+
+    <HealthPanel client:load initialHealth={health} initialMessage={message} />
+
+    <section class="boundary-grid" aria-label="服务边界">
+      <article>
+        <span>01</span>
+        <h2>studyai-news-web</h2>
+        <p>公开页面、编辑界面、初始 HTML 和同源 API 边界。</p>
+      </article>
+      <article>
+        <span>02</span>
+        <h2>studyai-news-api</h2>
+        <p>版本化 API，以及后续的数据、采集、审核与工作流。</p>
+      </article>
+      <article>
+        <span>03</span>
+        <h2>Human Gate</h2>
+        <p>所有 P0 内容必须经过人工批准，系统不会无人审核发布。</p>
+      </article>
+    </section>
+
+    <footer>
+      <span>news.studyai.now</span>
+      <span>P0-0 · v0.1.0</span>
+    </footer>
+  </main>
+</BaseLayout>
