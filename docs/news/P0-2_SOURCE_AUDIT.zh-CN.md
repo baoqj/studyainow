@@ -107,3 +107,15 @@ DeepMind、Google Research、Google AI 与 OpenAI 分数较低，主要因为 Fe
 首次实跑还发现 GitHub 正文 CDATA 内含字面量 HTML `DOCTYPE`。解析器没有
 放宽对 XML 文档级 DTD/实体的拦截，而是先排除 CDATA 后再检查声明；修正后
 GitHub 10 条全部解析成功，包含真正 XML 实体声明的 XXE 测试仍被拒绝。
+
+生产抽样进一步发现 AWS 的部分 HTML 标签采用实体编码。`rss_atom_v2` 先做
+受限实体解码再清除脚本、样式和标签；迁移通过游标中的 parser version 强制
+一次安全重处理，响应 hash 相同则复用既有不可变 R2 快照。Staging 与
+Production 的 170 条记录均已升级到 v2，疑似 HTML 标签残留为 0；生产平均
+质量分 78.1、最低 55、低于 50 的条目为 0。
+
+质量结论不是“170 条都可直接发稿”：AWS、Cloudflare、GitHub、Microsoft
+Feed 的结构完整度最高，NVIDIA 与 Apple 可作为高质量候选；OpenAI、Google
+AI、DeepMind 与 Google Research 的 Feed 摘要或作者字段不足，保留低分标志，
+只进入后续补证与人工审核。生产样本共有 81 条 `thin_content`、70 条
+`missing_author`、57 条 `thin_summary`，任何条目都不会因来源官方而自动发布。

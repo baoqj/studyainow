@@ -1,12 +1,14 @@
 # news.studyai.now Codex 开发计划
 
-> 状态：P0-1 已完成并部署；等待用户指令开始 P0-2
+> 状态：P0-2 已完成并部署；等待用户指令开始 P0-3
 >
 > 编制日期：2026-09-03
 >
 > P0-0 验收记录：[`P0-0_RELEASE_REPORT.zh-CN.md`](./P0-0_RELEASE_REPORT.zh-CN.md)
 >
 > P0-1 验收记录：[`P0-1_RELEASE_REPORT.zh-CN.md`](./P0-1_RELEASE_REPORT.zh-CN.md)
+>
+> P0-2 验收记录：[`P0-2_RELEASE_REPORT.zh-CN.md`](./P0-2_RELEASE_REPORT.zh-CN.md)
 >
 > Git 根：`/Users/aibao/Documents/Project/AI-course/studyainow/Code`
 >
@@ -214,6 +216,8 @@ test(news-api): ...
 - Gate：数据库中不存在复制的 StudyAINow 用户、课程或技能主表。
 
 ### P0-2：安全采集垂直切片
+
+状态：**已完成（2026-09-03）**。10 个一手官方 Feed、合规来源审计、受限采集、增量游标、私有 R2 快照、解析器版本重处理、来源管理 API、Staging/Production 实采与远程回归均已通过，详见 P0-2 验收记录。
 
 - 输出：来源 CRUD、RSS/Atom connector、调度、ETag/Last-Modified、URL canonical、正文抽取、R2 限权快照、失败重试和来源健康。
 - 测试：SSRF 内网/元数据地址、重定向绕过、超时、超大正文、重复 URL、无效 XML、源站 429/5xx；10 个来源连续增量。
