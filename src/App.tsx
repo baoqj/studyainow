@@ -54,6 +54,7 @@ const AdminInterviews = lazy(() => import('./pages/admin/AdminInterviews').then(
 const KnowledgeGraphPreview = lazy(() => import('./pages/admin/KnowledgeGraphPreview').then((module) => ({ default: module.KnowledgeGraphPreview })));
 const AdminJobSources = lazy(() => import('./pages/admin/AdminJobSources').then((module) => ({ default: module.AdminJobSources })));
 const AdminJobs = lazy(() => import('./pages/admin/AdminJobs').then((module) => ({ default: module.AdminJobs })));
+const AdminNews = lazy(() => import('./pages/admin/AdminNews').then((module) => ({ default: module.AdminNews })));
 const AdminSettings = lazy(() => import('./pages/admin/Settings').then((module) => ({ default: module.Settings })));
 const NotFound = lazy(() => import('./pages/NotFound').then((module) => ({ default: module.NotFound })));
 
@@ -132,6 +133,7 @@ function AppRoutes() {
           <Route path="knowledge-graph" element={<KnowledgeGraphPreview />} />
           <Route path="job-sources" element={<AdminJobSources />} />
           <Route path="jobs" element={<AdminJobs />} />
+          <Route path="news" element={<AdminNews />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
         <Route path="/privacy" element={<LegalPage type="privacy" />} />

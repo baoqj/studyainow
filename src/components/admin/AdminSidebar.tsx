@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   MessageSquareText,
   Network,
+  Newspaper,
   Settings2,
   UserRoundCog,
   UsersRound,
@@ -28,6 +29,7 @@ const administratorItems = [
   { label: '知识图谱', icon: Network, path: '/admin/knowledge-graph' },
   { label: '职位来源', icon: DatabaseZap, path: '/admin/job-sources' },
   { label: '职位列表', icon: BriefcaseBusiness, path: '/admin/jobs' },
+  { label: '新闻管理', icon: Newspaper, path: '/admin/news' },
   { label: '系统设置', icon: Settings2, path: '/admin/settings' },
 ];
 

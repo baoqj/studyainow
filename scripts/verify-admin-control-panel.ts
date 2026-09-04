@@ -23,6 +23,7 @@ const pageViewApi = read('../functions/api/activity/page-view.ts');
 const userActivityApi = read('../functions/api/admin/users/[userId]/activity.ts');
 const interviewsApi = read('../functions/api/admin/interviews/index.ts');
 const interviewsPage = read('../src/pages/admin/AdminInterviews.tsx');
+const newsPage = read('../src/pages/admin/AdminNews.tsx');
 const interviewAdminCatalog = read('../functions/_lib/interviewCatalog.ts');
 const interviewContent = read('../src/data/interviewContent.ts');
 const organizationAccess = read('../functions/_lib/organizations.ts');
@@ -51,7 +52,7 @@ for (const route of ['/api/admin/overview', '/api/admin/users', '/api/admin/inte
 }
 assert.ok(worker.includes("'/api/activity/page-view'"), 'Worker must record authenticated page views');
 assert.match(worker, /adminUserActivityMatch/, 'Worker must expose per-user activity tabs');
-for (const route of ['users', 'courses', 'community-courses', 'interviews', 'knowledge-graph', 'job-sources', 'jobs', 'settings']) {
+for (const route of ['users', 'courses', 'community-courses', 'interviews', 'knowledge-graph', 'job-sources', 'jobs', 'news', 'settings']) {
   assert.ok(app.includes(`path="${route}"`), `missing nested admin route ${route}`);
 }
 assert.match(app, /<AdminLayout \/>/, 'admin routes must share the SaaS shell');
@@ -64,6 +65,11 @@ assert.match(sidebar, /lg:hidden/, 'admin menu must use a mobile drawer');
 assert.match(sidebar, /面试题集.+\/admin\/interviews/, 'admin menu must expose interview-set management');
 assert.match(sidebar, /组织管理.+\/admin\/organizations/, 'administrator menu must expose organization management');
 assert.match(sidebar, /组织用户.+my-organization\?tab=members/, 'Leader menu must expose organization members');
+assert.match(sidebar, /新闻管理.+\/admin\/news/, 'administrator menu must expose Newsroom management');
+assert.match(newsPage, /https:\/\/news\.studyai\.now/, 'Newsroom bridge must target the production News origin');
+for (const capability of ['候选与人工复核', '文章与发布流程', '分类与标签']) {
+  assert.ok(newsPage.includes(capability), `Newsroom bridge must expose ${capability}`);
+}
 
 for (const route of ['/api/admin/organizations', '/api/admin/my-organization']) {
   assert.ok(worker.includes(`'${route}'`), `missing organization Worker route ${route}`);
