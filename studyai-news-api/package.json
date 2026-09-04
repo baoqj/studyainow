@@ -1,6 +1,6 @@
 {
   "name": "studyai-news-api",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -20,6 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "contract:check": "node scripts/verify-openapi.mjs",
+    "learning:evaluate": "node --experimental-strip-types scripts/evaluate-learning-links.ts",
     "deploy:dry-run": "wrangler deploy --env production --dry-run",
     "check": "npm run cf-typegen && npm run typecheck && npm test && npm run contract:check && npm run deploy:dry-run",
     "deploy:staging": "npm run check && npm run db:migrate:staging && wrangler deploy --env staging",

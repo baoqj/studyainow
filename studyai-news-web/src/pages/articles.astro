@@ -1,0 +1,27 @@
+---
+import { env } from 'cloudflare:workers';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { fetchPublicArticles, formatNewsDate, type PublicArticleCard } from '../lib/content';
+
+export const prerender = false;
+
+const category = Astro.url.searchParams.get('category')?.slice(0, 160) || undefined;
+const tag = Astro.url.searchParams.get('tag')?.slice(0, 160) || undefined;
+let articles: PublicArticleCard[] = [];
+let error: string | null = null;
+try {
+  articles = await fetchPublicArticles(env.NEWS_API, { category, tag });
+} catch (caught) {
+  error = caught instanceof Error ? caught.message : '文章数据暂时不可用';
+}
+const titleSuffix = category ? ` · ${category}` : tag ? ` · ${tag}` : '';
+---
+
+<BaseLayout title={`已发布文章${titleSuffix} · StudyAI News`} description="经过 StudyAI 人工审核并公开发布的 AI 新闻文章。" canonical={Astro.url.href}>
+  <main class="page-shell">
+    <header class="article-header"><p class="eyebrow">Published by StudyAI</p><h1>已发布文章</h1><p class="summary">这里只列出完成事实门禁、人工批准并正式上架的公开文章。草稿、待审核和下架内容不会出现在列表中。</p>{(category || tag) && <p><span class="pill">筛选：{category ?? tag}</span> <a class="text-link" href="/articles">清除筛选</a></p>}</header>
+    <section class="section">
+      {error ? <div class="error-state" role="alert"><h3>文章数据暂时不可用</h3><p>{error}</p></div> : articles.length === 0 ? <div class="empty-state"><h3>当前没有符合条件的已发布文章</h3><p>文章只有经过管理员人工批准后才会公开。可返回首页查看一手官方来源动态。</p><a class="text-link" href="/">返回新闻首页</a></div> : <div class="article-grid">{articles.map((article) => <a class="article-card" href={`/article/${article.slug}`}><div><span class="pill">{article.category?.name ?? 'AI 新闻'}</span><h3>{article.title}</h3><p>{article.summary}</p></div><div class="meta"><time datetime={article.publishedAt}>{formatNewsDate(article.publishedAt)}</time><span>·</span><span>人工审核</span></div></a>)}</div>}
+    </section>
+  </main>
+</BaseLayout>

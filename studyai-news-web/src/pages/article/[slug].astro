@@ -1,0 +1,37 @@
+---
+import { env } from 'cloudflare:workers';
+import ArticleBody from '../../components/ArticleBody.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { fetchPublicArticle, formatNewsDate, type PublicArticle } from '../../lib/content';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+let article: PublicArticle | null = null;
+let error: string | null = null;
+try {
+  article = await fetchPublicArticle(env.NEWS_API, slug);
+  if (!article) Astro.response.status = 404;
+} catch (caught) {
+  error = caught instanceof Error ? caught.message : '文章暂时无法载入';
+  Astro.response.status = 503;
+}
+const canonical = `https://news.studyai.now/article/${encodeURIComponent(slug)}`;
+---
+
+<BaseLayout title={article ? `${article.title} · StudyAI News` : '文章未找到 · StudyAI News'} description={article?.summary ?? 'StudyAI News 文章不存在或暂时不可用。'} canonical={canonical} noindex={!article}>
+  <main class="page-shell">
+    {error ? <section class="article-header"><p class="eyebrow">Service unavailable</p><h1>文章暂时无法载入</h1><p class="summary">{error}</p><a class="button-secondary" href="/">返回新闻首页</a></section> : !article ? <section class="article-header"><p class="eyebrow">404</p><h1>文章不存在或已下架</h1><p class="summary">公开页面只保留已审核并在架的文章。内容若被下架，将立即从公开接口和页面移除。</p><a class="button-secondary" href="/">返回新闻首页</a></section> : <>
+      <header class="article-header"><div class="meta"><span class="pill">{article.category?.name ?? 'AI 新闻'}</span><span>人工审核</span><time datetime={article.publishedAt}>{formatNewsDate(article.publishedAt)}</time>{article.correctedAt && <span>已更正 {formatNewsDate(article.correctedAt)}</span>}</div><h1>{article.title}</h1><p class="summary">{article.summary}</p></header>
+      <div class="article-layout">
+        <ArticleBody markdown={article.bodyMarkdown} />
+        <aside class="article-sidebar">
+          <section class="side-panel"><h2>内容透明度</h2><p>{article.aiDisclosure}</p></section>
+          <section class="side-panel"><h2>原始来源</h2>{article.sources.length ? <ul>{article.sources.map((source) => <li><a href={source.url} target="_blank" rel="noreferrer">{source.name} ↗</a><p>可信等级 Tier {source.tier}</p></li>)}</ul> : <p>暂无公开来源链接。</p>}</section>
+          <section class="side-panel"><h2>相关技能与课程</h2>{article.learningLinks.length ? <ul>{article.learningLinks.map((link) => <li class="learning-link"><a href={link.coreUrl}><strong>{link.objectType === 'skill' ? '技能' : '课程'} · {link.coreTitle}</strong><span>相关度 {Math.round(Number(link.relevanceScore) * 100)}% · {link.reason}</span></a></li>)}</ul> : <p>尚无经人工批准的学习关联。阅读新闻本身不会计入学习进度。</p>}</section>
+          {article.corrections.length > 0 && <section class="side-panel correction"><h2>更正记录</h2><ul>{article.corrections.map((item) => <li><p>{formatNewsDate(item.createdAt)} · {item.reason}</p></li>)}</ul></section>}
+        </aside>
+      </div>
+    </>}
+  </main>
+</BaseLayout>

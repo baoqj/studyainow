@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { proxyAdminNews } from '../functions/api/admin/news/proxy';
+import { buildNewsLearningCatalog, NEWS_LEARNING_CATALOG_CONTRACT } from '../functions/_lib/newsLearningCatalog';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const migration = read('../migrations/0024_admin_control_panel.sql');
@@ -26,6 +27,8 @@ const interviewsApi = read('../functions/api/admin/interviews/index.ts');
 const interviewsPage = read('../src/pages/admin/AdminInterviews.tsx');
 const newsPage = read('../src/pages/admin/AdminNews.tsx');
 const newsProxy = read('../functions/api/admin/news/proxy.ts');
+const navigationCopy = read('../src/data/navigationCopy.ts');
+const navbar = read('../src/components/layout/Navbar.tsx');
 const wrangler = read('../wrangler.toml');
 const interviewAdminCatalog = read('../functions/_lib/interviewCatalog.ts');
 const interviewContent = read('../src/data/interviewContent.ts');
@@ -71,7 +74,7 @@ assert.match(sidebar, /组织管理.+\/admin\/organizations/, 'administrator men
 assert.match(sidebar, /组织用户.+my-organization\?tab=members/, 'Leader menu must expose organization members');
 assert.match(sidebar, /新闻管理.+\/admin\/news/, 'administrator menu must expose Newsroom management');
 assert.doesNotMatch(newsPage, /https:\/\/news\.studyai\.now/, 'unified News administration must never leave the main admin origin');
-for (const capability of ['采集来源', '候选与 Claims', '文章与发布', '分类与标签', 'Claim Ledger']) {
+for (const capability of ['采集来源', '候选与 Claims', '技能与课程', '文章与发布', '分类与标签', 'Claim Ledger']) {
   assert.ok(newsPage.includes(capability), `unified News administration must expose ${capability}`);
 }
 assert.match(worker, /pathname\.startsWith\('\/api\/admin\/news\/'\)/, 'main Worker must own every News admin API child route');
@@ -79,7 +82,10 @@ assert.match(newsProxy, /await requireAdmin\(env\.DB, request\)/, 'News proxy mu
 assert.match(newsProxy, /x-studyai-admin-service-token/, 'News proxy must authenticate its private Service Binding request');
 assert.match(newsProxy, /x-studyai-admin-actor/, 'News audit records must identify the main StudyAINow administrator');
 assert.match(newsProxy, /x-news-csrf/, 'News mutations must enforce a same-origin CSRF signal');
+assert.match(newsProxy, /buildNewsLearningCatalog/, 'learning-link mutations must receive the trusted Core catalog server-side');
 assert.doesNotMatch(newsProxy, /headers:\s*request\.headers/, 'browser cookies and authorization headers must not be forwarded wholesale');
+assert.match(navbar, /https:\/\/news\.studyai\.now\//, 'the public main navigation must link to the News subdomain');
+for (const label of ['新闻', '新聞', 'News', 'Actualités', 'Noticias']) assert.ok(navigationCopy.includes(label), `missing localized News navigation label ${label}`);
 assert.match(wrangler, /binding = "NEWS_API"\s+service = "studyai-news-api"/, 'main Worker must bind privately to studyai-news-api');
 
 for (const route of ['/api/admin/organizations', '/api/admin/my-organization']) {
@@ -151,7 +157,13 @@ const adminDb = {
     const statement = {
       bind: (..._values: unknown[]) => statement,
       first: async () => sql.includes('FROM sessions') ? adminUser : null,
-      all: async () => ({ results: sql.includes('user_roles.role') ? [{ role: 'admin' }] : [] }),
+      all: async () => ({ results:
+        sql.includes('user_roles.role') ? [{ role: 'admin' }]
+          : sql.includes('FROM skill_aliases') ? [{ skill_id: 'skill-agents', alias: 'AI Agents' }]
+            : sql.includes('FROM skills WHERE') ? [{ id: 'skill-agents', slug: 'ai-agents', name_zh: 'AI 智能体', name_en: 'AI Agents', definition: '设计和评估可执行任务的 AI 智能体。', category: 'AI Engineering', taxonomy_version: 3 }]
+              : sql.includes('FROM lesson_skill_coverage') ? [{ course_id: 'course-agents', skill_id: 'skill-agents' }]
+                : sql.includes('FROM courses') ? [{ id: 'course-agents', slug: 'agent-engineering', title: 'AI Agent Engineering', subtitle: '构建可靠智能体', description: '从工具调用到评估。', topic: 'AI Agents', level: 'intermediate' }]
+                  : [] }),
       run: async () => ({ success: true }),
     };
     return statement;
@@ -191,5 +203,27 @@ const csrfResponse = await proxyAdminNews({
 });
 assert.equal(csrfResponse.status, 403, 'cross-origin News mutations must be rejected');
 assert.equal(forwarded, null, 'rejected mutations must not invoke the private Worker');
+
+const catalog = await buildNewsLearningCatalog(adminDb);
+assert.equal(catalog.contractVersion, NEWS_LEARNING_CATALOG_CONTRACT, 'Core catalog must expose an explicit versioned contract');
+assert.deepEqual(catalog.skills.map((skill) => skill.id), ['skill-agents'], 'only canonical Core skill IDs may enter News');
+assert.deepEqual(catalog.courses[0]?.skillIds, ['skill-agents'], 'course recommendations must preserve approved Core skill coverage');
+const secondCatalog = await buildNewsLearningCatalog(adminDb);
+assert.equal(secondCatalog.catalogVersion, catalog.catalogVersion, 'unchanged Core data must produce a stable catalog version');
+assert.equal(secondCatalog.checksum, catalog.checksum, 'unchanged Core data must produce a stable checksum');
+
+forwarded = null;
+const learningResponse = await proxyAdminNews({
+  request: new Request('https://studyai.now/api/admin/news/stories/story-1/learning-links', {
+    method: 'POST',
+    headers: { cookie: 'studyainow_session=test-session', origin: 'https://studyai.now', 'x-news-csrf': '1', 'idempotency-key': 'learning-test-request' },
+    body: JSON.stringify({ catalog: { contractVersion: 'browser-controlled' } }),
+  }),
+  env: proxyEnv,
+});
+assert.equal(learningResponse.status, 200, 'an authenticated administrator may generate learning suggestions');
+const forwardedPayload = await forwarded?.json() as { catalog?: typeof catalog } | undefined;
+assert.equal(forwardedPayload?.catalog?.contractVersion, NEWS_LEARNING_CATALOG_CONTRACT, 'browser catalog input must be replaced by the trusted server catalog');
+assert.equal(forwardedPayload?.catalog?.skills[0]?.id, 'skill-agents', 'News must receive canonical Core skill IDs');
 
 console.log('Admin control-panel verification passed.');

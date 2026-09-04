@@ -1,4 +1,4 @@
-import { Bell, BookOpen, BriefcaseBusiness, FilePenLine, FileText, Globe, LogOut, Moon, Search, Settings, Sun, User, Users } from 'lucide-react';
+import { Bell, BookOpen, BriefcaseBusiness, FilePenLine, FileText, Globe, LogOut, Moon, Newspaper, Search, Settings, Sun, User, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -128,7 +128,7 @@ export function Navbar({
             <img src={logoTrans} alt="" aria-hidden="true" className="h-9 w-9 shrink-0 object-contain sm:h-10 sm:w-10" />
             <BrandWordmark className="text-sm min-[360px]:text-base sm:text-xl" />
           </Link>}
-          <nav className="hidden md:flex gap-6 h-full items-center">
+          <nav className="hidden h-full items-center gap-2 md:flex lg:gap-4 xl:gap-6">
             <Link to={catalogPath} className={navLinkClass('/courses')}>
               {copy.public.courses}
             </Link>
@@ -138,13 +138,16 @@ export function Navbar({
             <Link to={publicPath('/jobs')} className={navLinkClass('/jobs')}>
               {copy.public.jobs}
             </Link>
+            <a href="https://news.studyai.now/" className={navLinkClass('/news')}>
+              {copy.public.news}
+            </a>
             <Link to={resumeDestination} className={navLinkClass('/me/resume')}>
               {copy.public.resume}
             </Link>
           </nav>
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
-          <div className="hidden md:flex relative text-on-surface-variant focus-within:text-primary">
+          <div className="relative hidden text-on-surface-variant focus-within:text-primary xl:flex">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-outline" />
             <input
               className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary outline-none w-64 transition-all"
@@ -155,6 +158,15 @@ export function Navbar({
           <div className="hidden lg:block">
             <SupportButton />
           </div>
+
+          <a
+            href="https://news.studyai.now/"
+            aria-label={copy.public.news}
+            title={copy.public.news}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary md:hidden"
+          >
+            <Newspaper className="h-5 w-5" />
+          </a>
 
           <Link
             to={resumeDestination}

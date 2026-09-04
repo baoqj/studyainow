@@ -1,0 +1,15 @@
+---
+import { markdownToBlocks } from '../lib/markdown';
+
+interface Props { markdown: string }
+const blocks = markdownToBlocks(Astro.props.markdown);
+---
+
+<div class="article-body">
+  {blocks.map((block) => block.type === 'heading'
+    ? block.level === 2 ? <h2>{block.text}</h2> : <h3>{block.text}</h3>
+    : block.type === 'list' ? <ul>{block.items.map((item) => <li>{item}</li>)}</ul>
+    : block.type === 'quote' ? <blockquote>{block.text}</blockquote>
+    : block.type === 'code' ? <pre><code>{block.text}</code></pre>
+    : <p>{block.text}</p>)}
+</div>

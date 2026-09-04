@@ -1,5 +1,6 @@
 import { requireAdmin } from '../../../_lib/auth';
 import { ApiError, errorResponse } from '../../../_lib/http';
+import { buildNewsLearningCatalog } from '../../../_lib/newsLearningCatalog';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const PASSTHROUGH_HEADERS = ['accept', 'content-type', 'idempotency-key', 'x-request-id'] as const;
@@ -40,10 +41,24 @@ export async function proxyAdminNews(context: {
     headers.set('x-studyai-admin-service-token', token);
     headers.set('x-studyai-admin-actor', `studyai-user:${user.id}`);
 
+    const needsLearningCatalog = (
+      request.method === 'POST'
+      && /^\/api\/admin\/news\/stories\/[^/]+\/learning-links$/.test(incomingUrl.pathname)
+    ) || (
+      request.method === 'PATCH'
+      && /^\/api\/admin\/news\/learning-links\/[^/]+$/.test(incomingUrl.pathname)
+    );
+    let body: BodyInit | null | undefined = SAFE_METHODS.has(request.method) ? undefined : request.body;
+    if (needsLearningCatalog) {
+      const incoming = await request.json().catch(() => ({})) as Record<string, unknown>;
+      body = JSON.stringify({ ...incoming, catalog: await buildNewsLearningCatalog(env.DB) });
+      headers.set('content-type', 'application/json');
+    }
+
     const upstream = await env.NEWS_API.fetch(new Request(upstreamUrl, {
       method: request.method,
       headers,
-      body: SAFE_METHODS.has(request.method) ? undefined : request.body,
+      body,
       redirect: 'manual',
     }));
     const responseHeaders = new Headers(upstream.headers);

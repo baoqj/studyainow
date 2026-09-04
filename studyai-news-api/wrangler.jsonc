@@ -8,7 +8,7 @@
   "preview_urls": true,
   "vars": {
     "ENVIRONMENT": "development",
-    "RELEASE_VERSION": "0.5.0"
+    "RELEASE_VERSION": "0.6.0"
   },
   "d1_databases": [
     {
@@ -24,6 +24,12 @@
       "bucket_name": "studyai-news-media-staging"
     }
   ],
+  "vectorize": [
+    {
+      "binding": "LEARNING_VECTORS",
+      "index_name": "studyai-news-learning-vectors-staging"
+    }
+  ],
   "observability": {
     "enabled": true
   },
@@ -34,7 +40,7 @@
       "preview_urls": true,
       "vars": {
         "ENVIRONMENT": "staging",
-        "RELEASE_VERSION": "0.5.0"
+        "RELEASE_VERSION": "0.6.0"
       },
       "d1_databases": [
         {
@@ -50,6 +56,12 @@
           "bucket_name": "studyai-news-media-staging"
         }
       ],
+      "vectorize": [
+        {
+          "binding": "LEARNING_VECTORS",
+          "index_name": "studyai-news-learning-vectors-staging"
+        }
+      ],
       "triggers": {
         "crons": ["*/15 * * * *"]
       }
@@ -60,7 +72,7 @@
       "preview_urls": false,
       "vars": {
         "ENVIRONMENT": "production",
-        "RELEASE_VERSION": "0.5.0"
+        "RELEASE_VERSION": "0.6.0"
       },
       "d1_databases": [
         {
@@ -74,6 +86,12 @@
         {
           "binding": "MEDIA",
           "bucket_name": "studyai-news-media"
+        }
+      ],
+      "vectorize": [
+        {
+          "binding": "LEARNING_VECTORS",
+          "index_name": "studyai-news-learning-vectors-v1"
         }
       ],
       "triggers": {

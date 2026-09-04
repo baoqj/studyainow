@@ -43,6 +43,7 @@ describe('News D1 migrations', () => {
       '0005_parser_reprocessing.sql',
       '0006_editorial_metadata.sql',
       '0007_claim_ledger.sql',
+      '0008_learning_links.sql',
     ]);
 
     const db = openDatabase();
@@ -109,6 +110,10 @@ describe('News D1 migrations', () => {
       'prompt_registry',
       'claim_revision',
       'article_fact_check',
+      'core_catalog_sync',
+      'learning_link_run',
+      'story_learning_link',
+      'learning_link_revision',
     ]));
 
     for (const forbiddenTable of ['users', 'organizations', 'skills', 'courses', 'knowledge_points']) {
@@ -139,6 +144,11 @@ describe('News D1 migrations', () => {
       'idx_research_package_story_created',
       'idx_claim_revision_claim_created',
       'idx_article_fact_check_revision_checked',
+      'idx_core_catalog_sync_created',
+      'idx_learning_link_run_story_created',
+      'idx_story_learning_link_review',
+      'idx_story_learning_link_story',
+      'idx_learning_link_revision_link_created',
     ]));
 
     expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);

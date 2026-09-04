@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { API_VERSION, app } from '../src/app';
 import type { Env } from '../src/env';
+import { NEWS_SCHEMA_VERSION } from '../src/schema-health';
 
-function schemaDatabase(version = '7'): D1Database {
+function schemaDatabase(version = String(NEWS_SCHEMA_VERSION)): D1Database {
   return {
     prepare: () => ({
       first: async () => ({ value: version }),
@@ -37,8 +38,8 @@ describe('StudyAI News API foundation', () => {
       environment: 'test',
       database: {
         ok: true,
-        currentVersion: 7,
-        expectedVersion: 7,
+        currentVersion: NEWS_SCHEMA_VERSION,
+        expectedVersion: NEWS_SCHEMA_VERSION,
       },
       traceId: 'p0-0-test-trace',
     });
@@ -57,7 +58,7 @@ describe('StudyAI News API foundation', () => {
       database: {
         ok: false,
         currentVersion: 1,
-        expectedVersion: 7,
+        expectedVersion: NEWS_SCHEMA_VERSION,
       },
       error: { code: 'schema_unavailable' },
     });
@@ -109,5 +110,19 @@ describe('StudyAI News API foundation', () => {
       ok: false,
       error: { code: 'unauthorized' },
     });
+  });
+
+  it('requires the trusted StudyAINow proxy for Core learning mutations', async () => {
+    const response = await app.request('/api/admin/news/stories/story-1/learning-links', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${testEnv.INGEST_ADMIN_TOKEN}`,
+        'idempotency-key': 'learning-test-request',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ catalog: {} }),
+    }, testEnv);
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: 'trusted_core_catalog_required' } });
   });
 });

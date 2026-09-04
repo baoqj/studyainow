@@ -10,6 +10,8 @@ import {
 } from '../src/editorial/service';
 import { processCandidateBatch, updateStoryMetadata } from '../src/enrichment/service';
 import { generateResearchPackage, getStoryResearch, updateClaim } from '../src/research/service';
+import { generateLearningLinks, getStoryLearningLinks, reviewLearningLink, type LearningCatalog } from '../src/learning/service';
+import { getPublicArticle, listPublicArticles, listPublicSignals } from '../src/public/service';
 import type { Env } from '../src/env';
 
 const migrationsDirectory = fileURLToPath(new URL('../migrations', import.meta.url));
@@ -179,6 +181,59 @@ describe('P0-3 editorial vertical slice', () => {
       changeReason: '从候选新闻建立初稿',
     }, 'operator:news-admin', 'trace-create');
 
+    const learningCatalog: LearningCatalog = {
+      contractVersion: 'studyai-learning-catalog/v1',
+      catalogVersion: 'core-test-001',
+      checksum: 'a'.repeat(64),
+      generatedAt: '2026-09-03T13:00:00.000Z',
+      skills: [{
+        id: 'skill-agent-engineering', slug: 'agent-engineering', nameZh: 'AI Agent Engineering',
+        nameEn: 'AI Agent Engineering', definition: 'Build AI agents with the OpenAI Agent SDK and developer API.',
+        category: 'AI Engineering', aliases: ['Agent SDK', 'AI agents'], taxonomyVersion: 3,
+        url: 'https://studyai.now/?skill=agent-engineering',
+      }],
+      courses: [{
+        id: 'course-agent-engineering', slug: 'agent-engineering', title: 'OpenAI Agent SDK for developers',
+        subtitle: 'Build AI agents', description: 'Use the OpenAI developer API and Agent SDK.', topic: 'AI Agents',
+        level: 'intermediate', skillIds: ['skill-agent-engineering'],
+        url: 'https://studyai.now/courses/agent-engineering',
+      }],
+    };
+    let vectorUpserts = 0;
+    env.LEARNING_VECTORS = {
+      upsert: async (vectors: VectorizeVector[]) => { vectorUpserts += vectors.length; return { mutationId: 'test-mutation' }; },
+      query: async () => ({ count: 2, matches: [
+        { id: 'skill:skill-agent-engineering', score: 0.98, metadata: {} },
+        { id: 'course:course-agent-engineering', score: 0.97, metadata: {} },
+      ] }),
+    } as unknown as VectorizeIndex;
+    const generatedLinks = await generateLearningLinks(env, story.id, learningCatalog, 'operator:news-admin', 'trace-learning');
+    expect(generatedLinks).toMatchObject({ suggestions: 2, vectorStatus: 'indexed', reused: false });
+    expect(vectorUpserts).toBe(2);
+    await expect(generateLearningLinks(env, story.id, learningCatalog, 'operator:news-admin', 'trace-learning-replay'))
+      .resolves.toMatchObject({ runId: generatedLinks.runId, reused: true });
+    expect(vectorUpserts).toBe(2);
+    const storyLinks = await getStoryLearningLinks(db, story.id);
+    expect(storyLinks).toHaveLength(2);
+    const skillLink = storyLinks.find((link) => link.objectType === 'skill')!;
+    await expect(reviewLearningLink(db, skillLink.id, {
+      status: 'approved', expectedUpdatedAt: skillLink.updatedAt, reason: '编辑确认与 Agent SDK 能力直接相关', catalog: learningCatalog,
+    }, 'operator:news-admin', 'trace-learning-approve')).resolves.toBe('updated');
+    expect(database.prepare(`SELECT skill_id, review_status, locked FROM article_skill_link WHERE article_id = ?`).get(articleId))
+      .toEqual({ skill_id: 'skill-agent-engineering', review_status: 'approved', locked: 1 });
+    env.LEARNING_VECTORS = undefined;
+    const degradedCatalog = { ...learningCatalog, catalogVersion: 'core-test-002', checksum: 'b'.repeat(64) };
+    await expect(generateLearningLinks(env, story.id, degradedCatalog, 'operator:news-admin', 'trace-learning-degraded'))
+      .resolves.toMatchObject({ suggestions: 2, vectorStatus: 'degraded', reused: false });
+    expect((await getStoryLearningLinks(db, story.id)).find((link) => link.id === skillLink.id)?.reviewStatus).toBe('approved');
+    const courseLink = (await getStoryLearningLinks(db, story.id)).find((link) => link.objectType === 'course')!;
+    const disabledCourseCatalog = { ...degradedCatalog, catalogVersion: 'core-test-003', checksum: 'c'.repeat(64), courses: [] };
+    await expect(reviewLearningLink(db, courseLink.id, {
+      status: 'approved', expectedUpdatedAt: courseLink.updatedAt, reason: '尝试批准已从 Core 禁用的课程', catalog: disabledCourseCatalog,
+    }, 'operator:news-admin', 'trace-learning-stale')).resolves.toBe('stale');
+    expect((await getStoryLearningLinks(db, story.id)).find((link) => link.id === courseLink.id)?.reviewStatus).toBe('stale');
+    await expect(getPublicArticle(db, 'openai-agent-sdk')).resolves.toBeNull();
+
     const updated = await updateArticle(db, articleId, {
       expectedVersion: 1,
       accessLevel: 'free',
@@ -238,6 +293,10 @@ describe('P0-3 editorial vertical slice', () => {
     await performArticleAction(db, articleId, 'approve', { reason: '人工复核通过' }, 'operator:news-admin', 'trace-approve', 'article-approve-001');
     await performArticleAction(db, articleId, 'publish', { reason: '人工确认上架' }, 'operator:news-admin', 'trace-publish', 'article-publish-001');
     expect((await getArticle(db, articleId))?.status).toBe('published');
+    await expect(listPublicArticles(db)).resolves.toMatchObject([{ id: articleId, slug: 'openai-agent-sdk' }]);
+    const publicArticle = await getPublicArticle(db, 'openai-agent-sdk');
+    expect(publicArticle).toMatchObject({ id: articleId, learningLinks: [{ coreObjectId: 'skill-agent-engineering' }] });
+    await expect(listPublicSignals(db)).resolves.not.toEqual(expect.arrayContaining([expect.objectContaining({ id: story.id })]));
     await updateArticle(db, articleId, {
       expectedVersion: 5,
       accessLevel: 'free',
@@ -268,6 +327,7 @@ describe('P0-3 editorial vertical slice', () => {
       status: 'published',
     });
     await performArticleAction(db, articleId, 'withdraw', { reason: '编辑主动下架' }, 'operator:news-admin', 'trace-withdraw', 'article-withdraw-001');
+    await expect(getPublicArticle(db, 'openai-agent-sdk-correction')).resolves.toBeNull();
     await performArticleAction(db, articleId, 'reopen', { reason: '重新进入编辑流程' }, 'operator:news-admin', 'trace-reopen', 'article-reopen-001');
     expect((await getArticle(db, articleId))?.status).toBe('draft');
     expect(database.prepare(`

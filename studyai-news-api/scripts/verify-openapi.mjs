@@ -11,6 +11,9 @@ const contract = YAML.parse(contractSource);
 const healthOperation = contract?.paths?.['/api/news/v1/health']?.get;
 const healthSchema = contract?.components?.schemas?.HealthResponse;
 const requiredOperations = {
+  getNewsPublicHome: contract?.paths?.['/api/news/v1/home']?.get,
+  listNewsPublicArticles: contract?.paths?.['/api/news/v1/articles']?.get,
+  getNewsPublicArticle: contract?.paths?.['/api/news/v1/articles/{slug}']?.get,
   listNewsSources: contract?.paths?.['/api/admin/news/sources']?.get,
   createNewsSource: contract?.paths?.['/api/admin/news/sources']?.post,
   probeNewsSource: contract?.paths?.['/api/admin/news/sources/probe']?.post,
@@ -23,6 +26,9 @@ const requiredOperations = {
   updateNewsCandidateMetadata: contract?.paths?.['/api/admin/news/candidates/{storyId}']?.patch,
   getNewsStoryResearch: contract?.paths?.['/api/admin/news/stories/{storyId}']?.get,
   generateNewsStoryResearch: contract?.paths?.['/api/admin/news/stories/{storyId}/research']?.post,
+  generateNewsLearningLinks: contract?.paths?.['/api/admin/news/stories/{storyId}/learning-links']?.post,
+  listNewsLearningLinks: contract?.paths?.['/api/admin/news/learning-links']?.get,
+  reviewNewsLearningLink: contract?.paths?.['/api/admin/news/learning-links/{linkId}']?.patch,
   createNewsClaim: contract?.paths?.['/api/admin/news/stories/{storyId}/claims']?.post,
   reviewNewsClaim: contract?.paths?.['/api/admin/news/claims/{claimId}']?.patch,
   addNewsClaimEvidence: contract?.paths?.['/api/admin/news/claims/{claimId}/evidence']?.post,
@@ -50,6 +56,7 @@ if (contract?.components?.securitySchemes?.ingestionOperator?.scheme !== 'bearer
 
 for (const [operationId, operation] of Object.entries(requiredOperations)) {
   if (operation?.operationId !== operationId) failures.push(`${operationId} operation is missing`);
+  if (operationId.startsWith('getNewsPublic') || operationId.startsWith('listNewsPublic')) continue;
   if (!operation?.security?.some((entry) => Object.hasOwn(entry, 'ingestionOperator') || Object.hasOwn(entry, 'studyAiAdminService'))) {
     failures.push(`${operationId} must require News administrator authentication`);
   }

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: StudyAI News API
-  version: 0.5.0
+  version: 0.6.0
   description: Versioned contract for public News APIs and editorial APIs reached only through the authenticated StudyAINow admin proxy.
 servers:
   - url: https://news.studyai.now
@@ -29,6 +29,73 @@ paths:
                 $ref: "#/components/schemas/SchemaUnavailableResponse"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+  /api/news/v1/home:
+    get:
+      operationId: getNewsPublicHome
+      summary: Read SSR-ready published articles, official source signals and categories
+      responses:
+        "200":
+          description: Public News home data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicHomeResponse"
+  /api/news/v1/articles:
+    get:
+      operationId: listNewsPublicArticles
+      summary: List only free, human-approved and currently published articles
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Public article cards
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, articles, traceId]
+                properties:
+                  ok: { type: boolean, const: true }
+                  articles:
+                    type: array
+                    items: { $ref: "#/components/schemas/PublicArticleCard" }
+                  traceId: { type: string }
+  /api/news/v1/articles/{slug}:
+    get:
+      operationId: getNewsPublicArticle
+      summary: Read one free, human-approved and currently published article
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Published article, sources and approved learning links
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, article, traceId]
+                properties:
+                  ok: { type: boolean, const: true }
+                  article: { type: object, additionalProperties: true }
+                  traceId: { type: string }
+        "404":
+          $ref: "#/components/responses/NotFound"
   /api/admin/news/sources:
     get:
       operationId: listNewsSources
@@ -247,6 +314,49 @@ paths:
           $ref: "#/components/responses/AdminData"
         "400":
           $ref: "#/components/responses/BadRequest"
+  /api/admin/news/stories/{storyId}/learning-links:
+    parameters:
+      - $ref: "#/components/parameters/StoryId"
+    post:
+      operationId: generateNewsLearningLinks
+      summary: Generate versioned skill and course suggestions from the trusted Core catalog
+      security:
+        - studyAiAdminService: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/admin/news/learning-links:
+    get:
+      operationId: listNewsLearningLinks
+      summary: List scored, evidenced and reviewable skill or course links
+      security:
+        - ingestionOperator: []
+        - studyAiAdminService: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+  /api/admin/news/learning-links/{linkId}:
+    patch:
+      operationId: reviewNewsLearningLink
+      summary: Approve, reject or withdraw one learning link with optimistic concurrency
+      security:
+        - studyAiAdminService: []
+      parameters:
+        - name: linkId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Learning link edit conflict
   /api/admin/news/stories/{storyId}/claims:
     parameters:
       - $ref: "#/components/parameters/StoryId"
@@ -449,6 +559,41 @@ components:
         minLength: 8
         maxLength: 120
   schemas:
+    PublicArticleCard:
+      type: object
+      additionalProperties: true
+      required: [id, slug, title, summary, articleType, publishedAt, tags]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        articleType: { type: string }
+        publishedAt: { type: string, format: date-time }
+        correctedAt:
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
+        tags:
+          type: array
+          items: { type: object, additionalProperties: true }
+    PublicHomeResponse:
+      type: object
+      additionalProperties: true
+      required: [ok, articles, signals, categories, disclosure, traceId]
+      properties:
+        ok: { type: boolean, const: true }
+        featured:
+          oneOf: [{ $ref: "#/components/schemas/PublicArticleCard" }, { type: "null" }]
+        articles:
+          type: array
+          items: { $ref: "#/components/schemas/PublicArticleCard" }
+        signals:
+          type: array
+          items: { type: object, additionalProperties: true }
+        categories:
+          type: array
+          items: { type: object, additionalProperties: true }
+        disclosure: { type: string }
+        traceId: { type: string }
     HealthResponse:
       type: object
       additionalProperties: false

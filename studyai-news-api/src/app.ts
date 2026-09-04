@@ -46,8 +46,15 @@ import {
   type ClaimSupport,
   type ClaimType,
 } from './research/service';
+import {
+  generateLearningLinks,
+  getStoryLearningLinks,
+  listLearningLinks,
+  reviewLearningLink,
+} from './learning/service';
+import { getPublicArticle, listPublicArticles, publicHome } from './public/service';
 
-export const API_VERSION = '0.5.0';
+export const API_VERSION = '0.6.0';
 
 type Bindings = {
   Bindings: Env;
@@ -128,6 +135,15 @@ function notFound(context: Context<Bindings>, code: string, message: string) {
   }, 404);
 }
 
+function requireTrustedCoreCatalog(context: Context<Bindings>) {
+  if (context.get('adminIdentity').method === 'service') return null;
+  return context.json({
+    ok: false as const,
+    error: { code: 'trusted_core_catalog_required', message: 'Learning mutations must pass through the authenticated StudyAINow admin proxy' },
+    traceId: context.get('traceId'),
+  }, 403);
+}
+
 app.use('*', async (context, next) => {
   const traceId = resolveTraceId(context.req.raw);
   context.set('traceId', traceId);
@@ -168,6 +184,37 @@ app.get('/api/news/v1/health', async (context) => {
     ...baseResponse,
   }, 200, {
     'cache-control': 'no-store',
+  });
+});
+
+app.get('/api/news/v1/home', async (context) => context.json({
+  ok: true as const,
+  ...(await publicHome(context.env.DB)),
+  traceId: context.get('traceId'),
+}, 200, {
+  'cache-control': 'public, max-age=120, stale-while-revalidate=600',
+}));
+
+app.get('/api/news/v1/articles', async (context) => {
+  try {
+    const articles = await listPublicArticles(context.env.DB, {
+      limit: pageLimit(context.req.query('limit')),
+      category: optionalString(context.req.query('category'), 'category', 160),
+      tag: optionalString(context.req.query('tag'), 'tag', 160),
+    });
+    return context.json({ ok: true as const, articles, traceId: context.get('traceId') }, 200, {
+      'cache-control': 'public, max-age=120, stale-while-revalidate=600',
+    });
+  } catch (error) {
+    return invalidRequest(context, error, 'invalid_public_article_query');
+  }
+});
+
+app.get('/api/news/v1/articles/:slug', async (context) => {
+  const article = await getPublicArticle(context.env.DB, context.req.param('slug'));
+  if (!article) return notFound(context, 'article_not_found', 'Published article not found');
+  return context.json({ ok: true as const, article, traceId: context.get('traceId') }, 200, {
+    'cache-control': 'public, max-age=120, stale-while-revalidate=600',
   });
 });
 
@@ -249,7 +296,8 @@ app.patch('/api/admin/news/candidates/:storyId', async (context) => {
 app.get('/api/admin/news/stories/:storyId', async (context) => {
   const research = await getStoryResearch(context.env.DB, context.req.param('storyId'));
   if (!research) return notFound(context, 'story_not_found', 'Story candidate not found');
-  return context.json({ ok: true as const, ...research, traceId: context.get('traceId') });
+  const learningLinks = await getStoryLearningLinks(context.env.DB, context.req.param('storyId'));
+  return context.json({ ok: true as const, ...research, learningLinks, traceId: context.get('traceId') });
 });
 
 app.post('/api/admin/news/stories/:storyId/research', async (context) => {
@@ -287,6 +335,75 @@ app.post('/api/admin/news/stories/:storyId/claims', async (context) => {
     return context.json({ ok: true as const, claimId, traceId: context.get('traceId') }, 201);
   } catch (error) {
     return invalidRequest(context, error, 'invalid_claim');
+  }
+});
+
+app.post('/api/admin/news/stories/:storyId/learning-links', async (context) => {
+  const forbidden = requireTrustedCoreCatalog(context);
+  if (forbidden) return forbidden;
+  const idempotencyKey = context.req.header('idempotency-key');
+  if (!validIdempotencyKey(idempotencyKey)) {
+    return invalidRequest(context, new Error('idempotency_key_required'), 'idempotency_key_required');
+  }
+  try {
+    const body = objectBody(await context.req.json());
+    const result = await generateLearningLinks(
+      context.env,
+      context.req.param('storyId'),
+      body.catalog,
+      context.get('adminIdentity').actorRef,
+      context.get('traceId'),
+    );
+    return context.json({ ok: true as const, result, traceId: context.get('traceId') });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'story_not_found') {
+      return notFound(context, 'story_not_found', 'Story candidate not found');
+    }
+    return invalidRequest(context, error, 'learning_link_generation_failed');
+  }
+});
+
+app.get('/api/admin/news/learning-links', async (context) => {
+  try {
+    const status = optionalString(context.req.query('status'), 'status', 30);
+    return context.json({
+      ok: true as const,
+      learningLinks: await listLearningLinks(context.env.DB, status, pageLimit(context.req.query('limit'))),
+      traceId: context.get('traceId'),
+    });
+  } catch (error) {
+    return invalidRequest(context, error, 'invalid_learning_link_query');
+  }
+});
+
+app.patch('/api/admin/news/learning-links/:linkId', async (context) => {
+  const forbidden = requireTrustedCoreCatalog(context);
+  if (forbidden) return forbidden;
+  try {
+    const body = objectBody(await context.req.json());
+    const status = requiredString(body.status, 'status', 30);
+    if (!['approved', 'rejected', 'withdrawn'].includes(status)) throw new Error('invalid_learning_review_status');
+    const result = await reviewLearningLink(
+      context.env.DB,
+      context.req.param('linkId'),
+      {
+        status: status as 'approved' | 'rejected' | 'withdrawn',
+        expectedUpdatedAt: requiredString(body.expectedUpdatedAt, 'expected_updated_at', 80),
+        reason: requiredString(body.reason, 'reason', 1000),
+        catalog: body.catalog,
+      },
+      context.get('adminIdentity').actorRef,
+      context.get('traceId'),
+    );
+    if (result === 'not_found') return notFound(context, 'learning_link_not_found', 'Learning link not found');
+    if (result === 'conflict') return context.json({
+      ok: false as const,
+      error: { code: 'edit_conflict', message: 'Learning link changed; reload before reviewing' },
+      traceId: context.get('traceId'),
+    }, 409);
+    return context.json({ ok: true as const, status: result, traceId: context.get('traceId') });
+  } catch (error) {
+    return invalidRequest(context, error, 'invalid_learning_link_review');
   }
 });
 

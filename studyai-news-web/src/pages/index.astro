@@ -1,63 +1,52 @@
 ---
 import { env } from 'cloudflare:workers';
-import HealthPanel from '../components/HealthPanel';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { fetchNewsApiHealth } from '../lib/health';
+import { fetchPublicHome, formatNewsDate, type PublicHome } from '../lib/content';
 
 export const prerender = false;
 
-const result = await fetchNewsApiHealth(env.NEWS_API);
-const health = result.ok ? result.health : null;
-const message = result.ok ? null : result.message;
+let home: PublicHome | null = null;
+let error: string | null = null;
+try {
+  home = await fetchPublicHome(env.NEWS_API);
+} catch (caught) {
+  error = caught instanceof Error ? caught.message : '新闻数据暂时不可用';
+}
 ---
 
 <BaseLayout
-  title="StudyAI News · 基础服务"
-  description="StudyAI News 正在建立可信、可追溯的 AI 新闻与能力地图。"
+  title="StudyAI News · 可信 AI 新闻与学习路径"
+  description="来自一手官方来源、经过人工审核，并连接到 StudyAINow 技能与课程的 AI 新闻。"
+  canonical="https://news.studyai.now/"
 >
-  <main>
-    <header class="site-header">
-      <a href="/" aria-label="StudyAI News 首页">
-        <span class="brand-mark" aria-hidden="true">S</span>
-        <span>StudyAI News</span>
-      </a>
-      <nav aria-label="页面导航">
-        <a class="admin-entry" href="https://studyai.now/admin/news">StudyAINow 管理后台</a>
-        <span class="phase-badge">P0-4</span>
-      </nav>
-    </header>
-
-    <section class="hero">
-      <p class="eyebrow">AI 情报与能力地图</p>
-      <h1>把 AI 新闻变成<br /><em>能学、能练、能用</em>的能力。</h1>
-      <p class="hero-copy">
-        官方来源采集、跨来源聚类、受控分类和人工编辑审核已接入双 Worker 架构。未经人工批准的内容不会发布。
-      </p>
+  <main class="page-shell">
+    <section class="news-hero">
+      <div>
+        <p class="eyebrow">StudyAI Intelligence Desk</p>
+        <h1>看懂 AI 变化，<br /><span>找到下一项能力。</span></h1>
+        <p class="hero-copy">从官方发布到技能影响，从新闻事实到可执行课程。每篇 StudyAI 文章都经过人工审核，来源和学习关联可追溯。</p>
+        <div class="hero-actions"><a class="button-primary" href="#latest">浏览最新动态</a><a class="button-secondary" href="/articles">查看已发布文章</a></div>
+      </div>
+      <aside class="hero-aside" aria-label="当前新闻数据概览">
+        <div><strong>{home?.signals.length ?? '—'}</strong><p>条最新官方来源信号<br />仅展示批准的 Feed 元数据</p></div><hr /><div><strong>{home?.articles.length ?? '—'}</strong><p>篇人工批准文章<br />不会自动发布草稿</p></div>
+      </aside>
     </section>
 
-    <HealthPanel client:load initialHealth={health} initialMessage={message} />
+    {error ? <section class="section"><div class="error-state" role="alert"><h3>新闻数据暂时不可用</h3><p>{error}</p><a class="text-link" href="/">重新载入</a></div></section> : home && <>
+      <section class="section" id="latest">
+        <div class="section-head"><div><p class="eyebrow">Human-reviewed stories</p><h2>StudyAI 编辑精选</h2></div><p>只显示已经由管理员审核并上架的 StudyAI 文章。新闻阅读不会被记录为课程或技能掌握。</p></div>
+        <div class="disclosure">{home.disclosure}</div>
+        {home.categories.length > 0 && <nav class="category-row" aria-label="新闻分类">{home.categories.map((category) => <a href={`/articles?category=${encodeURIComponent(category.slug)}`}>{category.name} · {category.storyCount}</a>)}</nav>}
+        {home.featured ? <>
+          <article class="featured-card"><div class="featured-visual"><span>{home.featured.category?.name ?? 'AI 新闻'}</span><strong>{home.featured.title}</strong></div><div class="featured-copy"><div><div class="meta"><span class="pill">人工审核</span><time datetime={home.featured.publishedAt}>{formatNewsDate(home.featured.publishedAt)}</time></div><p>{home.featured.summary}</p></div><a class="button-primary" href={`/article/${home.featured.slug}`}>阅读完整文章 →</a></div></article>
+          {home.articles.length > 1 && <div class="article-grid">{home.articles.slice(1).map((article) => <a class="article-card" href={`/article/${article.slug}`}><div><span class="pill">{article.category?.name ?? 'AI 新闻'}</span><h3>{article.title}</h3><p>{article.summary}</p></div><div class="meta"><time datetime={article.publishedAt}>{formatNewsDate(article.publishedAt)}</time><span>·</span><span>人工审核</span></div></a>)}</div>}
+        </> : <div class="empty-state"><h3>首批编辑文章正在人工审核</h3><p>在管理员明确批准前，草稿不会显示在这里。你可以先查看下方的一手官方来源信号。</p></div>}
+      </section>
 
-    <section class="boundary-grid" aria-label="服务边界">
-      <article>
-        <span>01</span>
-        <h2>studyai-news-web</h2>
-        <p>公开页面、初始 HTML 与公开 API 边界；不承载管理员后台。</p>
-      </article>
-      <article>
-        <span>02</span>
-        <h2>studyai-news-api</h2>
-        <p>版本化 API，以及后续的数据、采集、审核与工作流。</p>
-      </article>
-      <article>
-        <span>03</span>
-        <h2>Human Gate</h2>
-        <p>所有 P0 内容必须经过人工批准，系统不会无人审核发布。</p>
-      </article>
-    </section>
-
-    <footer>
-      <span>news.studyai.now</span>
-      <span>P0-4 · v0.3.0</span>
-    </footer>
+      <section class="section">
+        <div class="section-head"><div><p class="eyebrow">Official source wire</p><h2>一手来源动态</h2></div><p>这里是采集数据库中通过来源政策和 robots 审核的官方 Feed 标题与短摘要，不代表 StudyAI 编辑观点或独立成稿。</p></div>
+        {home.signals.length > 0 ? <div class="signal-list">{home.signals.map((signal) => <article class="signal-item"><div class="signal-source">{signal.sourceName}<br /><span>Tier {signal.sourceTier}</span></div><div><div class="meta">{signal.category && <span class="pill">{signal.category.name}</span>}<time datetime={signal.occurredAt ?? undefined}>{formatNewsDate(signal.occurredAt)}</time></div><h3><a href={signal.sourceUrl} target="_blank" rel="noreferrer">{signal.title} ↗</a></h3>{signal.summary && <p>{signal.summary}</p>}</div><div class="signal-score"><strong>{signal.qualityScore === null ? '—' : Math.round(signal.qualityScore)}</strong>质量分</div></article>)}</div> : <div class="empty-state"><h3>暂无可公开来源信号</h3><p>来源必须同时满足启用、政策批准和 robots 允许条件。</p></div>}
+      </section>
+    </>}
   </main>
 </BaseLayout>
