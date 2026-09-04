@@ -71,7 +71,7 @@ export async function probeSourceRequest(request: Request): Promise<unknown> {
   });
 }
 
-export async function createSource(env: Env, request: Request, traceId: string): Promise<string> {
+export async function createSource(env: Env, request: Request, traceId: string, actorRef: string): Promise<string> {
   const body = record(await request.json());
   const id = string(body.id, 'source_id', 80);
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error('invalid_source_id');
@@ -120,9 +120,10 @@ export async function createSource(env: Env, request: Request, traceId: string):
       INSERT INTO audit_log (
         id, actor_ref, actor_role, action, object_type, object_id,
         after_json, reason, trace_id
-      ) VALUES (?, 'operator:ingest-admin', 'admin', 'news.source.create', 'news_source', ?, ?, ?, ?)
+      ) VALUES (?, ?, 'admin', 'news.source.create', 'news_source', ?, ?, ?, ?)
     `).bind(
       crypto.randomUUID(),
+      actorRef,
       id,
       JSON.stringify({ id, feedUrl, hosts, status: 'paused', policyStatus: 'review_required' }),
       'P0-2 source created pending policy approval',
@@ -137,6 +138,7 @@ export async function updateSource(
   sourceId: string,
   request: Request,
   traceId: string,
+  actorRef: string,
 ): Promise<boolean> {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(sourceId)) throw new Error('invalid_source_id');
   const body = record(await request.json());
@@ -184,9 +186,10 @@ export async function updateSource(
       INSERT INTO audit_log (
         id, actor_ref, actor_role, action, object_type, object_id,
         after_json, reason, trace_id
-      ) VALUES (?, 'operator:ingest-admin', 'admin', 'news.source.update', 'news_source', ?, ?, ?, ?)
+      ) VALUES (?, ?, 'admin', 'news.source.update', 'news_source', ?, ?, ?, ?)
     `).bind(
       crypto.randomUUID(),
+      actorRef,
       sourceId,
       JSON.stringify({ status, policyStatus, robotsStatus, policyReviewedAt, nextPolicyReviewAt }),
       optionalString(body.reason, 'reason', 1000) ?? 'P0-2 source configuration update',
@@ -197,13 +200,13 @@ export async function updateSource(
   return result.slice(0, 2).some((entry) => Number(entry.meta.changes ?? 0) > 0);
 }
 
-export async function retireSource(env: Env, sourceId: string, traceId: string): Promise<boolean> {
+export async function retireSource(env: Env, sourceId: string, traceId: string, actorRef: string): Promise<boolean> {
   const request = new Request('https://internal.invalid', {
     method: 'PATCH',
     body: JSON.stringify({ status: 'retired', reason: 'Soft-retired through source API' }),
     headers: { 'content-type': 'application/json' },
   });
-  return updateSource(env, sourceId, request, traceId);
+  return updateSource(env, sourceId, request, traceId, actorRef);
 }
 
 export { listSourceHealth, runManualIngestion };

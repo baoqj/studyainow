@@ -42,6 +42,7 @@ describe('News D1 migrations', () => {
       '0004_seed_p0_sources.sql',
       '0005_parser_reprocessing.sql',
       '0006_editorial_metadata.sql',
+      '0007_claim_ledger.sql',
     ]);
 
     const db = openDatabase();
@@ -103,6 +104,11 @@ describe('News D1 migrations', () => {
       'story_metadata_revision',
       'story_taxonomy',
       'story_entity',
+      'research_package',
+      'research_package_source',
+      'prompt_registry',
+      'claim_revision',
+      'article_fact_check',
     ]));
 
     for (const forbiddenTable of ['users', 'organizations', 'skills', 'courses', 'knowledge_points']) {
@@ -130,6 +136,9 @@ describe('News D1 migrations', () => {
       'idx_source_item_simhash',
       'idx_story_metadata_revision_story_created',
       'idx_story_taxonomy_one_primary',
+      'idx_research_package_story_created',
+      'idx_claim_revision_claim_created',
+      'idx_article_fact_check_revision_checked',
     ]));
 
     expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);

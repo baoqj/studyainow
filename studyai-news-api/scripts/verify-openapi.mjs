@@ -17,11 +17,15 @@ const requiredOperations = {
   updateNewsSource: contract?.paths?.['/api/admin/news/sources/{sourceId}']?.patch,
   retireNewsSource: contract?.paths?.['/api/admin/news/sources/{sourceId}']?.delete,
   runNewsSource: contract?.paths?.['/api/admin/news/sources/{sourceId}/run']?.post,
-  createNewsAdminSession: contract?.paths?.['/api/admin/news/session']?.post,
   getNewsEditorialDashboard: contract?.paths?.['/api/admin/news/dashboard']?.get,
   listNewsCandidates: contract?.paths?.['/api/admin/news/candidates']?.get,
   enrichNewsCandidates: contract?.paths?.['/api/admin/news/candidates/enrich']?.post,
   updateNewsCandidateMetadata: contract?.paths?.['/api/admin/news/candidates/{storyId}']?.patch,
+  getNewsStoryResearch: contract?.paths?.['/api/admin/news/stories/{storyId}']?.get,
+  generateNewsStoryResearch: contract?.paths?.['/api/admin/news/stories/{storyId}/research']?.post,
+  createNewsClaim: contract?.paths?.['/api/admin/news/stories/{storyId}/claims']?.post,
+  reviewNewsClaim: contract?.paths?.['/api/admin/news/claims/{claimId}']?.patch,
+  addNewsClaimEvidence: contract?.paths?.['/api/admin/news/claims/{claimId}/evidence']?.post,
   listNewsArticles: contract?.paths?.['/api/admin/news/articles']?.get,
   createNewsArticle: contract?.paths?.['/api/admin/news/articles']?.post,
   getNewsArticle: contract?.paths?.['/api/admin/news/articles/{articleId}']?.get,
@@ -46,7 +50,7 @@ if (contract?.components?.securitySchemes?.ingestionOperator?.scheme !== 'bearer
 
 for (const [operationId, operation] of Object.entries(requiredOperations)) {
   if (operation?.operationId !== operationId) failures.push(`${operationId} operation is missing`);
-  if (!operation?.security?.some((entry) => Object.hasOwn(entry, 'ingestionOperator') || Object.hasOwn(entry, 'adminSession'))) {
+  if (!operation?.security?.some((entry) => Object.hasOwn(entry, 'ingestionOperator') || Object.hasOwn(entry, 'studyAiAdminService'))) {
     failures.push(`${operationId} must require News administrator authentication`);
   }
 }

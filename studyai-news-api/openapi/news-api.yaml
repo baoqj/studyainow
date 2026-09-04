@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: StudyAI News API
-  version: 0.4.0
-  description: Versioned contract for the StudyAI News public and editorial APIs.
+  version: 0.5.0
+  description: Versioned contract for public News APIs and editorial APIs reached only through the authenticated StudyAINow admin proxy.
 servers:
   - url: https://news.studyai.now
 paths:
@@ -167,43 +167,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ManualIngestionResponse"
-  /api/admin/news/session:
-    post:
-      operationId: createNewsAdminSession
-      summary: Exchange an administrator bearer credential for a short HttpOnly session
-      security:
-        - ingestionOperator: []
-      responses:
-        "200":
-          $ref: "#/components/responses/AdminData"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    get:
-      operationId: getNewsAdminSession
-      summary: Validate the active administrator session
-      security:
-        - ingestionOperator: []
-        - adminSession: []
-      responses:
-        "200":
-          $ref: "#/components/responses/AdminData"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-    delete:
-      operationId: deleteNewsAdminSession
-      summary: End the active administrator session
-      security:
-        - adminSession: []
-      responses:
-        "200":
-          $ref: "#/components/responses/AdminData"
   /api/admin/news/dashboard:
     get:
       operationId: getNewsEditorialDashboard
       summary: Read editorial queue counts
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "200":
           $ref: "#/components/responses/AdminData"
@@ -213,7 +183,7 @@ paths:
       summary: List clustered and enriched source candidates
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "200":
           $ref: "#/components/responses/AdminData"
@@ -223,7 +193,7 @@ paths:
       summary: Run deterministic deduplication and controlled metadata enrichment
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -239,7 +209,7 @@ paths:
       summary: Human-review and lock a candidate category and tags
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "200":
           $ref: "#/components/responses/AdminData"
@@ -247,13 +217,83 @@ paths:
           $ref: "#/components/responses/BadRequest"
         "404":
           $ref: "#/components/responses/NotFound"
+  /api/admin/news/stories/{storyId}:
+    parameters:
+      - $ref: "#/components/parameters/StoryId"
+    get:
+      operationId: getNewsStoryResearch
+      summary: Read a story research package, source evidence and Claim Ledger
+      security:
+        - ingestionOperator: []
+        - studyAiAdminService: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/admin/news/stories/{storyId}/research:
+    parameters:
+      - $ref: "#/components/parameters/StoryId"
+    post:
+      operationId: generateNewsStoryResearch
+      summary: Generate or reuse an immutable deterministic source-bound research package
+      security:
+        - ingestionOperator: []
+        - studyAiAdminService: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/admin/news/stories/{storyId}/claims:
+    parameters:
+      - $ref: "#/components/parameters/StoryId"
+    post:
+      operationId: createNewsClaim
+      summary: Add an explicitly typed human Claim pending source evidence
+      security:
+        - ingestionOperator: []
+        - studyAiAdminService: []
+      responses:
+        "201":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/admin/news/claims/{claimId}:
+    patch:
+      operationId: reviewNewsClaim
+      summary: Review a Claim and append its immutable revision record
+      security:
+        - ingestionOperator: []
+        - studyAiAdminService: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/admin/news/claims/{claimId}/evidence:
+    post:
+      operationId: addNewsClaimEvidence
+      summary: Attach immutable evidence from a source item in the same story
+      security:
+        - ingestionOperator: []
+        - studyAiAdminService: []
+      responses:
+        "201":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
   /api/admin/news/articles:
     get:
       operationId: listNewsArticles
       summary: List editorial articles and publication states
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "200":
           $ref: "#/components/responses/AdminData"
@@ -262,7 +302,7 @@ paths:
       summary: Create a manually edited article and immutable first revision
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "201":
           $ref: "#/components/responses/AdminData"
@@ -276,7 +316,7 @@ paths:
       summary: Read an article with revisions, approvals, taxonomy and audit history
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "200":
           $ref: "#/components/responses/AdminData"
@@ -287,7 +327,7 @@ paths:
       summary: Save an immutable article revision using optimistic concurrency
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "200":
           $ref: "#/components/responses/AdminData"
@@ -309,7 +349,7 @@ paths:
       summary: Perform an audited, idempotent editorial state transition
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -325,7 +365,7 @@ paths:
       summary: List controlled primary categories and tags
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "200":
           $ref: "#/components/responses/AdminData"
@@ -335,7 +375,7 @@ paths:
       summary: Create a human-controlled tag
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "201":
           $ref: "#/components/responses/AdminData"
@@ -347,7 +387,7 @@ paths:
       summary: Update a category or tag display name, aliases and status
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "200":
           $ref: "#/components/responses/AdminData"
@@ -359,7 +399,7 @@ paths:
       summary: Merge a tag into an active canonical tag
       security:
         - ingestionOperator: []
-        - adminSession: []
+        - studyAiAdminService: []
       responses:
         "200":
           $ref: "#/components/responses/AdminData"
@@ -369,10 +409,11 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque-operator-token
-    adminSession:
+    studyAiAdminService:
       type: apiKey
-      in: cookie
-      name: studyai_news_admin
+      in: header
+      name: X-StudyAI-Admin-Service-Token
+      description: Internal credential sent only by the authenticated studyai.now admin proxy.
   parameters:
     SourceId:
       name: sourceId
@@ -733,7 +774,7 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     Unauthorized:
-      description: News administrator credential or session is missing or invalid
+      description: StudyAINow admin service identity or operational credential is missing or invalid
       content:
         application/json:
           schema:

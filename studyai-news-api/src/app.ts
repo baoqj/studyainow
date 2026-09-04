@@ -1,10 +1,6 @@
 import { Hono, type Context } from 'hono';
 import {
   authorizeAdminRequest,
-  clearAdminSessionCookie,
-  createAdminSessionCookie,
-  hasValidMutationOrigin,
-  isAdminBearerAuthorized,
   type AdminIdentity,
 } from './admin/auth';
 import {
@@ -39,8 +35,19 @@ import {
 import { inspectNewsSchema } from './schema-health';
 import { createTag, listTaxonomy, mergeTag, updateTaxonomyNode } from './taxonomy/service';
 import { resolveTraceId } from './trace';
+import {
+  addClaimEvidence,
+  createClaim,
+  generateResearchPackage,
+  getStoryResearch,
+  updateClaim,
+  type ClaimImportance,
+  type ClaimRisk,
+  type ClaimSupport,
+  type ClaimType,
+} from './research/service';
 
-export const API_VERSION = '0.4.0';
+export const API_VERSION = '0.5.0';
 
 type Bindings = {
   Bindings: Env;
@@ -76,7 +83,27 @@ function parseArticleInput(body: Record<string, unknown>, update = false): Artic
     bodyMarkdown: requiredString(body.bodyMarkdown, 'body_markdown', 100_000),
     categoryId: requiredString(body.categoryId, 'category_id', 120),
     tagIds: stringArray(body.tagIds ?? [], 'tag_ids', 10),
+    claimIds: stringArray(body.claimIds ?? [], 'claim_ids', 100),
     changeReason: requiredString(body.changeReason, 'change_reason', 1000),
+  };
+}
+
+function parseClaimInput(body: Record<string, unknown>) {
+  const claimType = requiredString(body.claimType, 'claim_type', 30) as ClaimType;
+  const supportStatus = requiredString(body.supportStatus, 'support_status', 30) as ClaimSupport;
+  const riskLevel = requiredString(body.riskLevel, 'risk_level', 20) as ClaimRisk;
+  const importance = requiredString(body.importance, 'importance', 20) as ClaimImportance;
+  if (!['fact', 'number', 'quote', 'prediction', 'editorial_opinion', 'inference'].includes(claimType)) throw new Error('invalid_claim_type');
+  if (!['supported', 'conflicted', 'unverified', 'rejected'].includes(supportStatus)) throw new Error('invalid_support_status');
+  if (!['normal', 'high'].includes(riskLevel)) throw new Error('invalid_risk_level');
+  if (!['critical', 'standard'].includes(importance)) throw new Error('invalid_importance');
+  return {
+    claimText: requiredString(body.claimText, 'claim_text', 2_000),
+    claimType,
+    supportStatus,
+    riskLevel,
+    importance,
+    reason: requiredString(body.reason, 'reason', 1_000),
   };
 }
 
@@ -144,23 +171,6 @@ app.get('/api/news/v1/health', async (context) => {
   });
 });
 
-app.post('/api/admin/news/session', async (context) => {
-  context.header('cache-control', 'no-store');
-  if (!isAdminBearerAuthorized(context.req.raw, context.env)) {
-    return context.json({
-      ok: false as const,
-      error: { code: 'unauthorized' as const, message: 'Invalid administrator credential' },
-      traceId: context.get('traceId'),
-    }, 401);
-  }
-  context.header('set-cookie', await createAdminSessionCookie(context.env));
-  return context.json({
-    ok: true as const,
-    identity: { actorRef: 'operator:news-admin', role: 'admin' as const },
-    traceId: context.get('traceId'),
-  });
-});
-
 app.use('/api/admin/news/*', async (context, next) => {
   context.header('cache-control', 'no-store');
   const identity = await authorizeAdminRequest(context.req.raw, context.env);
@@ -170,38 +180,13 @@ app.use('/api/admin/news/*', async (context, next) => {
       ok: false as const,
       error: {
         code: 'unauthorized' as const,
-        message: 'A valid News administrator session is required',
+        message: 'A valid StudyAINow administrator identity is required',
       },
       traceId: context.get('traceId'),
     }, 401);
   }
-  if (
-    identity.method === 'session'
-    && !['GET', 'HEAD', 'OPTIONS'].includes(context.req.method)
-    && !hasValidMutationOrigin(context.req.raw)
-  ) {
-    return context.json({
-      ok: false as const,
-      error: { code: 'csrf_check_failed' as const, message: 'The mutation origin could not be verified' },
-      traceId: context.get('traceId'),
-    }, 403);
-  }
   context.set('adminIdentity', identity);
   await next();
-});
-
-app.get('/api/admin/news/session', (context) => context.json({
-  ok: true as const,
-  identity: {
-    actorRef: context.get('adminIdentity').actorRef,
-    role: context.get('adminIdentity').role,
-  },
-  traceId: context.get('traceId'),
-}));
-
-app.delete('/api/admin/news/session', (context) => {
-  context.header('set-cookie', clearAdminSessionCookie());
-  return context.json({ ok: true as const, traceId: context.get('traceId') });
 });
 
 app.get('/api/admin/news/dashboard', async (context) => context.json({
@@ -258,6 +243,87 @@ app.patch('/api/admin/news/candidates/:storyId', async (context) => {
     return context.json({ ok: true as const, traceId: context.get('traceId') });
   } catch (error) {
     return invalidRequest(context, error, 'invalid_story_update');
+  }
+});
+
+app.get('/api/admin/news/stories/:storyId', async (context) => {
+  const research = await getStoryResearch(context.env.DB, context.req.param('storyId'));
+  if (!research) return notFound(context, 'story_not_found', 'Story candidate not found');
+  return context.json({ ok: true as const, ...research, traceId: context.get('traceId') });
+});
+
+app.post('/api/admin/news/stories/:storyId/research', async (context) => {
+  const idempotencyKey = context.req.header('idempotency-key');
+  if (!validIdempotencyKey(idempotencyKey)) {
+    return invalidRequest(context, new Error('idempotency_key_required'), 'idempotency_key_required');
+  }
+  try {
+    const result = await generateResearchPackage(
+      context.env.DB,
+      context.req.param('storyId'),
+      context.get('adminIdentity').actorRef,
+      context.get('traceId'),
+      idempotencyKey,
+    );
+    return context.json({ ok: true as const, result, traceId: context.get('traceId') });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'story_not_found') {
+      return notFound(context, 'story_not_found', 'Story candidate not found');
+    }
+    return invalidRequest(context, error, 'research_generation_failed');
+  }
+});
+
+app.post('/api/admin/news/stories/:storyId/claims', async (context) => {
+  try {
+    const body = objectBody(await context.req.json());
+    const claimId = await createClaim(
+      context.env.DB,
+      context.req.param('storyId'),
+      parseClaimInput(body),
+      context.get('adminIdentity').actorRef,
+      context.get('traceId'),
+    );
+    return context.json({ ok: true as const, claimId, traceId: context.get('traceId') }, 201);
+  } catch (error) {
+    return invalidRequest(context, error, 'invalid_claim');
+  }
+});
+
+app.patch('/api/admin/news/claims/:claimId', async (context) => {
+  try {
+    const body = objectBody(await context.req.json());
+    const updated = await updateClaim(
+      context.env.DB,
+      context.req.param('claimId'),
+      parseClaimInput(body),
+      context.get('adminIdentity').actorRef,
+      context.get('traceId'),
+    );
+    if (!updated) return notFound(context, 'claim_not_found', 'Claim not found');
+    return context.json({ ok: true as const, traceId: context.get('traceId') });
+  } catch (error) {
+    return invalidRequest(context, error, 'invalid_claim_update');
+  }
+});
+
+app.post('/api/admin/news/claims/:claimId/evidence', async (context) => {
+  try {
+    const body = objectBody(await context.req.json());
+    const evidenceId = await addClaimEvidence(
+      context.env.DB,
+      context.req.param('claimId'),
+      {
+        itemId: requiredString(body.itemId, 'item_id', 120),
+        evidenceExcerpt: requiredString(body.evidenceExcerpt, 'evidence_excerpt', 2_000),
+        isPrimary: optionalBoolean(body.isPrimary, 'is_primary') ?? false,
+      },
+      context.get('adminIdentity').actorRef,
+      context.get('traceId'),
+    );
+    return context.json({ ok: true as const, evidenceId, traceId: context.get('traceId') }, 201);
+  } catch (error) {
+    return invalidRequest(context, error, 'invalid_claim_evidence');
   }
 });
 
@@ -444,7 +510,12 @@ app.post('/api/admin/news/sources/probe', async (context) => {
 
 app.post('/api/admin/news/sources', async (context) => {
   try {
-    const sourceId = await createSource(context.env, context.req.raw, context.get('traceId'));
+    const sourceId = await createSource(
+      context.env,
+      context.req.raw,
+      context.get('traceId'),
+      context.get('adminIdentity').actorRef,
+    );
     return context.json({
       ok: true as const,
       sourceId,
@@ -471,6 +542,7 @@ app.patch('/api/admin/news/sources/:sourceId', async (context) => {
       context.req.param('sourceId'),
       context.req.raw,
       context.get('traceId'),
+      context.get('adminIdentity').actorRef,
     );
     if (!updated) {
       return context.json({
@@ -497,6 +569,7 @@ app.delete('/api/admin/news/sources/:sourceId', async (context) => {
     context.env,
     context.req.param('sourceId'),
     context.get('traceId'),
+    context.get('adminIdentity').actorRef,
   );
   if (!updated) {
     return context.json({

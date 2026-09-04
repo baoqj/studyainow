@@ -31,6 +31,7 @@ export interface ArticleInput {
   bodyMarkdown: string;
   categoryId: string;
   tagIds: string[];
+  claimIds: string[];
   changeReason: string;
 }
 
@@ -68,6 +69,31 @@ async function validateTaxonomy(db: D1Database, categoryId: string, tagIds: stri
     `).bind(tagId).first<{ id: string }>();
     if (!tag) throw new Error('invalid_tag_id');
   }
+}
+
+async function validateClaims(db: D1Database, storyId: string | null, claimIds: string[]): Promise<string[]> {
+  const uniqueIds = [...new Set(claimIds)];
+  if (uniqueIds.length !== claimIds.length) throw new Error('duplicate_claim_id');
+  if (uniqueIds.length === 0) return uniqueIds;
+  if (!storyId) throw new Error('claims_require_story');
+  for (const claimId of uniqueIds) {
+    const claim = await db.prepare('SELECT id FROM claim WHERE id = ? AND story_id = ? LIMIT 1')
+      .bind(claimId, storyId).first<{ id: string }>();
+    if (!claim) throw new Error('invalid_claim_id');
+  }
+  return uniqueIds;
+}
+
+function claimStatements(
+  db: D1Database,
+  articleId: string,
+  revisionId: string,
+  claimIds: string[],
+): D1PreparedStatement[] {
+  return claimIds.map((claimId) => db.prepare(`
+    INSERT INTO article_claim (article_id, revision_id, claim_id, block_id)
+    VALUES (?, ?, ?, ?)
+  `).bind(articleId, revisionId, claimId, `claim:${claimId}`));
 }
 
 function taxonomyStatements(
@@ -118,6 +144,7 @@ export async function createArticle(
     `).bind(input.storyId).first<{ id: string }>();
     if (existing) throw new Error('story_article_exists');
   }
+  const claimIds = await validateClaims(db, input.storyId ?? null, input.claimIds);
 
   const articleId = `article_${crypto.randomUUID()}`;
   const revisionId = `revision_${crypto.randomUUID()}`;
@@ -152,6 +179,7 @@ export async function createArticle(
       VALUES (?, ?, ?, ?, ?, 'draft')
     `).bind(articleId, input.locale, input.slug, input.title, input.summary),
     ...taxonomyStatements(db, articleId, input.categoryId, input.tagIds),
+    ...claimStatements(db, articleId, revisionId, claimIds),
     db.prepare(`
       INSERT INTO audit_log (
         id, actor_ref, actor_role, action, object_type, object_id,
@@ -187,6 +215,7 @@ export async function updateArticle(
   if (['in_review', 'scheduled', 'withdrawn'].includes(article.status)) {
     throw new Error('article_must_return_to_draft');
   }
+  const claimIds = await validateClaims(db, article.story_id, input.claimIds);
 
   const revisionCount = await db.prepare(`
     SELECT COALESCE(MAX(revision_number), 0) AS revision_number
@@ -231,6 +260,7 @@ export async function updateArticle(
         updated_at = excluded.updated_at
     `).bind(articleId, input.locale, input.slug, input.title, input.summary, now)]),
     ...taxonomyStatements(db, articleId, input.categoryId, input.tagIds),
+    ...claimStatements(db, articleId, revisionId, claimIds),
     db.prepare(`
       INSERT INTO audit_log (
         id, actor_ref, actor_role, action, object_type, object_id,
@@ -327,6 +357,25 @@ export async function getArticle(db: D1Database, articleId: string): Promise<Rec
     FROM audit_log WHERE object_type = 'article' AND object_id = ?
     ORDER BY created_at DESC LIMIT 50
   `).bind(articleId).all<Record<string, unknown>>();
+  const claims = await db.prepare(`
+    SELECT claim.id, claim.claim_text AS claimText, claim.claim_type AS claimType,
+      claim.support_status AS supportStatus, claim.risk_level AS riskLevel,
+      claim.importance, claim.checked_at AS checkedAt, claim.reviewer_ref AS reviewerRef,
+      EXISTS(SELECT 1 FROM claim_evidence WHERE claim_id = claim.id) AS hasEvidence
+    FROM article_claim AS link
+    JOIN claim ON claim.id = link.claim_id
+    WHERE link.article_id = ? AND link.revision_id = ?
+    ORDER BY claim.importance, claim.created_at
+  `).bind(articleId, article.active_revision_id).all<Record<string, unknown>>();
+  const factChecks = await db.prepare(`
+    SELECT action, factual_claims AS factualClaims,
+      supported_factual_claims AS supportedFactualClaims,
+      critical_claims AS criticalClaims,
+      supported_critical_claims AS supportedCriticalClaims,
+      coverage_percent AS coveragePercent, status, checker_ref AS checkerRef,
+      checked_at AS checkedAt
+    FROM article_fact_check WHERE article_id = ? ORDER BY checked_at DESC LIMIT 20
+  `).bind(articleId).all<Record<string, unknown>>();
   return {
     id: article.id,
     storyId: article.story_id,
@@ -345,8 +394,65 @@ export async function getArticle(db: D1Database, articleId: string): Promise<Rec
     revisions: revisions.results,
     approvals: approvals.results,
     taxonomy: taxonomy.results,
+    claims: claims.results.map((claim) => ({ ...claim, hasEvidence: Number(claim.hasEvidence) === 1 })),
+    factChecks: factChecks.results,
     audit: audit.results,
   };
+}
+
+const FACT_CHECKED_ACTIONS = new Set<ArticleAction>(['submit', 'approve', 'schedule', 'publish', 'correct']);
+
+async function enforceClaimLedger(
+  db: D1Database,
+  article: ArticleRow,
+  action: ArticleAction,
+  actorRef: string,
+): Promise<void> {
+  if (!FACT_CHECKED_ACTIONS.has(action) || !article.story_id || !article.active_revision_id) return;
+  const rows = await db.prepare(`
+    SELECT claim.id, claim.claim_type, claim.support_status, claim.risk_level,
+      claim.importance,
+      EXISTS(SELECT 1 FROM claim_evidence WHERE claim_id = claim.id) AS has_evidence
+    FROM article_claim AS link
+    JOIN claim ON claim.id = link.claim_id
+    WHERE link.article_id = ? AND link.revision_id = ?
+  `).bind(article.id, article.active_revision_id).all<{
+    id: string;
+    claim_type: string;
+    support_status: string;
+    risk_level: string;
+    importance: string;
+    has_evidence: number;
+  }>();
+  const factual = rows.results.filter((row) => ['fact', 'number', 'quote'].includes(row.claim_type));
+  const isSupported = (row: (typeof rows.results)[number]) => row.support_status === 'supported' && Number(row.has_evidence) === 1;
+  const supported = factual.filter(isSupported);
+  const critical = factual.filter((row) => row.importance === 'critical');
+  const supportedCritical = critical.filter(isSupported);
+  const highRiskBlocked = rows.results.some((row) => row.risk_level === 'high' && !isSupported(row));
+  const coverage = factual.length === 0 ? 0 : Math.round((supported.length / factual.length) * 10_000) / 100;
+  const passed = factual.length > 0
+    && coverage >= 95
+    && supportedCritical.length === critical.length
+    && !highRiskBlocked;
+  await db.prepare(`
+    INSERT INTO article_fact_check (
+      id, article_id, revision_id, action, factual_claims,
+      supported_factual_claims, critical_claims, supported_critical_claims,
+      coverage_percent, status, checker_ref, details_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    `factcheck_${crypto.randomUUID()}`, article.id, article.active_revision_id, action,
+    factual.length, supported.length, critical.length, supportedCritical.length,
+    coverage, passed ? 'passed' : 'blocked', actorRef,
+    JSON.stringify({
+      threshold: 95,
+      criticalThreshold: 100,
+      highRiskBlocked,
+      unsupportedClaimIds: factual.filter((row) => !isSupported(row)).map((row) => row.id),
+    }),
+  ).run();
+  if (!passed) throw new Error('claim_ledger_gate_failed');
 }
 
 function targetStatus(action: ArticleAction, current: ArticleStatus): ArticleStatus | null {
@@ -378,6 +484,8 @@ export async function performArticleAction(
     WHERE scope = 'article_action' AND idempotency_key = ? AND status = 'succeeded'
   `).bind(idempotencyKey).first<{ response_json: string }>();
   if (replay?.response_json) return JSON.parse(replay.response_json) as { status: 'updated'; articleStatus: ArticleStatus; version: number };
+
+  await enforceClaimLedger(db, article, action, actorRef);
 
   const nextVersion = article.version + 1;
   if (action === 'approve') {

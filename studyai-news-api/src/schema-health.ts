@@ -1,4 +1,4 @@
-export const NEWS_SCHEMA_VERSION = 6;
+export const NEWS_SCHEMA_VERSION = 7;
 
 export interface NewsSchemaStatus {
   ok: boolean;

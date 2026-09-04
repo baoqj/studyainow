@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { API_VERSION, app } from '../src/app';
 import type { Env } from '../src/env';
 
-function schemaDatabase(version = '6'): D1Database {
+function schemaDatabase(version = '7'): D1Database {
   return {
     prepare: () => ({
       first: async () => ({ value: version }),
@@ -37,8 +37,8 @@ describe('StudyAI News API foundation', () => {
       environment: 'test',
       database: {
         ok: true,
-        currentVersion: 6,
-        expectedVersion: 6,
+        currentVersion: 7,
+        expectedVersion: 7,
       },
       traceId: 'p0-0-test-trace',
     });
@@ -57,7 +57,7 @@ describe('StudyAI News API foundation', () => {
       database: {
         ok: false,
         currentVersion: 1,
-        expectedVersion: 6,
+        expectedVersion: 7,
       },
       error: { code: 'schema_unavailable' },
     });

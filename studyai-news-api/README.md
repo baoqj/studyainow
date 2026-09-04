@@ -2,9 +2,10 @@
 
 Cloudflare Worker backend for StudyAI News.
 
-P0-3 status: the independent News D1 schema includes approved-source ingestion,
+P0-4 status: the independent News D1 schema includes approved-source ingestion,
 deterministic cross-source clustering, controlled categories/tags/entities, immutable
-metadata and article revisions, human approval gates, publication events and audit logs.
+Research Packages, Claim/evidence revisions, fact-coverage gates, article revisions,
+human approval gates, publication events and audit logs.
 
 ## Boundary
 
@@ -27,7 +28,9 @@ The only Git root is the parent repository at `studyainow/Code`. Do not initiali
 | Staging | `studyai-news-api-staging` | `studyai-news-db-staging` | `studyai-news-media-staging` |
 | Production | `studyai-news-api` | `studyai-news-db` | `studyai-news-media` |
 
-The production Worker is intentionally private and is called by `studyai-news-web` through the `NEWS_API` Service Binding.
+The production Worker is intentionally private. Public requests are called by
+`studyai-news-web`; administration is called only by the authenticated
+`studyainow-web` proxy, both through separate `NEWS_API` Service Bindings.
 
 ## Commands
 
@@ -59,11 +62,11 @@ npx wrangler secret put INGEST_ADMIN_TOKEN --env staging
 npx wrangler secret put INGEST_ADMIN_TOKEN --env production
 ```
 
-The credential must contain at least 32 characters. The admin UI exchanges it once for
-an 8-hour, signed, `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Cookie-authenticated
-mutations also require same-origin verification and an explicit CSRF header; the token
-is never stored in browser local/session storage. P0-6 replaces this bootstrap boundary
-with Cloudflare Access JWT validation and individual role mapping.
+The operational credential must contain at least 32 characters and is never accepted by
+the browser UI. The sole UI at `studyai.now/admin/news` uses the existing main-site
+administrator session. Its Worker verifies the `admin` role and same-origin mutation,
+then calls this API with `STUDYAI_ADMIN_SERVICE_TOKEN` and a validated audit actor. The
+browser session and service credential are never forwarded to the other side.
 
 The health endpoint returns HTTP 503 until the bound database reports the expected schema version. This prevents application code from being treated as healthy before its migration is present.
 
@@ -100,11 +103,15 @@ News migrations do not modify StudyAINow Core data. They are additive and intent
 - `PATCH /api/admin/news/sources/{sourceId}`
 - `DELETE /api/admin/news/sources/{sourceId}`
 - `POST /api/admin/news/sources/{sourceId}/run` (requires `Idempotency-Key`)
-- `POST|GET|DELETE /api/admin/news/session`
 - `GET /api/admin/news/dashboard`
 - `GET /api/admin/news/candidates`
 - `POST /api/admin/news/candidates/enrich`
 - `PATCH /api/admin/news/candidates/{storyId}`
+- `GET /api/admin/news/stories/{storyId}`
+- `POST /api/admin/news/stories/{storyId}/research`
+- `POST /api/admin/news/stories/{storyId}/claims`
+- `PATCH /api/admin/news/claims/{claimId}`
+- `POST /api/admin/news/claims/{claimId}/evidence`
 - `GET|POST /api/admin/news/articles`
 - `GET|PATCH /api/admin/news/articles/{articleId}`
 - `POST /api/admin/news/articles/{articleId}/actions/{action}`
@@ -113,8 +120,8 @@ News migrations do not modify StudyAINow Core data. They are additive and intent
 - `PATCH /api/admin/news/taxonomy/{taxonomyId}`
 - `POST /api/admin/news/taxonomy/{taxonomyId}/merge`
 
-All `/api/admin/news/*` endpoints require the bootstrap bearer credential or the short
-admin session, except session creation which requires the bearer credential. Newly
+All `/api/admin/news/*` endpoints require the main-site service identity or the
+non-browser operational bearer credential. Newly
 created sources remain paused with `review_required`; an operator must separately record
 robots/policy approval before the scheduler can run them. Primary categories are seeded
 as a locked set of eight; automated enrichment cannot create a ninth category or
