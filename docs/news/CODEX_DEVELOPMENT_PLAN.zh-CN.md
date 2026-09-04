@@ -1,6 +1,6 @@
 # news.studyai.now Codex 开发计划
 
-> 状态：P0-2 已完成并部署；等待用户指令开始 P0-3
+> 状态：P0-3 已完成并部署；等待用户指令开始 P0-4
 >
 > 编制日期：2026-09-03
 >
@@ -9,6 +9,8 @@
 > P0-1 验收记录：[`P0-1_RELEASE_REPORT.zh-CN.md`](./P0-1_RELEASE_REPORT.zh-CN.md)
 >
 > P0-2 验收记录：[`P0-2_RELEASE_REPORT.zh-CN.md`](./P0-2_RELEASE_REPORT.zh-CN.md)
+>
+> P0-3 验收记录：[`P0-3_RELEASE_REPORT.zh-CN.md`](./P0-3_RELEASE_REPORT.zh-CN.md)
 >
 > Git 根：`/Users/aibao/Documents/Project/AI-course/studyainow/Code`
 >
@@ -225,6 +227,8 @@ test(news-api): ...
 
 ### P0-3：去重、分类与实体
 
+状态：**已完成（2026-09-03）**。除原计划的聚类、分类与实体外，根据用户要求提前交付基础编辑、人工审核、上架/下架、内容修订和分类标签管理，并接入主站 `/admin/news`。详见 P0-3 验收记录。
+
 - 输出：SimHash/规范 URL 去重、事件簇、有限一级分类、标签别名、实体规范化、人工锁定字段。
 - 测试：固定样本上的重复故事率、Macro-F1、标签相关率、实体合并；批量重跑不覆盖人工锁定。
 - Gate：模型不能创建新的一级分类。
@@ -243,6 +247,7 @@ test(news-api): ...
 
 ### P0-6：`/admin/news` 编辑闭环
 
+- 说明：P0-3 已提前交付基础 Dashboard、Candidates、Articles、分类/标签、修订、审核、发布、纠错、下架、审计及主站入口；本阶段仍负责 Cloudflare Access JWT、正式 RBAC、高风险双人审核、版本对比/预览、自动保存和完整失败恢复。
 - 输出：Dashboard、Sources、Candidates、Story/Claim、Articles、Skill Review、Workflow/Audit；自动保存、版本对比、预览、批准、排期、撤回、纠错。
 - 测试：Access JWT/RBAC、越权、CSRF、并发编辑、幂等发布、失败重试、敏感快照字段过滤；桌面与 390 px 视觉回归。
 - Gate：生成者不能绕过 Publisher 角色直接发布，高风险内容支持第二审核人规则。
