@@ -66,12 +66,16 @@ P0-4 需要依靠 Claim/evidence 补证，而不能把分类置信度当作事�
 | 全新本地迁移 | Wrangler 顺序执行 `0001 → 0006` | 全部成功；schema v6 |
 | Staging 垂直流程 | 登录、Cookie 会话、无 CSRF 写入、建稿、提交、未批准发布、批准、发布、下架 | 预期状态码全部通过；最终稿件为 `withdrawn`，保留 1 条修订和 5 条审计记录 |
 | 主站 Admin 集成 | TypeScript、Admin 契约、Vite production build、生产 bundle | 全部通过；生产 bundle 包含 Newsroom 路由与三个管理入口 |
-| 生产边界 | 健康、schema、管理页、未授权管理 API、D1 迁移 | API `0.4.0`、schema `6/6`；管理页 HTTP 200；无凭据 Dashboard HTTP 401；无待执行迁移 |
+| 生产边界 | 健康、schema、管理页、未授权管理 API、D1 迁移与首轮定时 enrichment | API `0.4.0`、schema `6/6`；管理页 HTTP 200；无凭据 Dashboard HTTP 401；无待执行迁移；首轮自动处理 100 条 |
 | 视觉与响应式 | Newsroom 登录页桌面及 390×844 | 无横向溢出；标题、表单和操作入口可见 |
 
 Staging 的鉴权编辑流程由实际 HTTP Session 完成；浏览器视觉检查没有输入或持久化管理员
 Token，因此不把它表述为“已完成生产浏览器登录”。Production 的既有管理员 secret 未被
 替换；Staging 测试 secret 已在测试后重新轮换。
+
+Production 在部署后的第一个 15 分钟调度点自动把 100 条历史 normalized item 转为 100 个
+已分类故事和 100 条元数据修订，证明定时任务已经运行；受每轮 100 条的安全批量上限约束，
+余下 70 条会由下一轮继续处理，不需要绕过服务层直接修改数据库。
 
 ## 5. Cloudflare 部署
 
