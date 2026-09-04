@@ -1,10 +1,12 @@
 # news.studyai.now Codex 开发计划
 
-> 状态：P0-0 已完成并部署；等待用户指令开始 P0-1
+> 状态：P0-1 已完成并部署；等待用户指令开始 P0-2
 >
 > 编制日期：2026-09-03
 >
 > P0-0 验收记录：[`P0-0_RELEASE_REPORT.zh-CN.md`](./P0-0_RELEASE_REPORT.zh-CN.md)
+>
+> P0-1 验收记录：[`P0-1_RELEASE_REPORT.zh-CN.md`](./P0-1_RELEASE_REPORT.zh-CN.md)
 >
 > Git 根：`/Users/aibao/Documents/Project/AI-course/studyainow/Code`
 >
@@ -204,6 +206,8 @@ test(news-api): ...
 - 回滚：删除两个新项目路径即可，不影响主站。
 
 ### P0-1：News schema 与发布状态机
+
+状态：**已完成（2026-09-03）**。独立 Staging/Production D1、空库迁移重放、发布状态机、审批门禁和远程回归均已通过，详见 P0-1 验收记录。
 
 - 输出：来源、游标、source item/snapshot、story cluster、Claim/evidence、article/revision、taxonomy、skill/course link、workflow run、audit/idempotency、podcast/media 表。
 - 测试：从 `0001` 在空 D1 全量重放；约束/索引/外键测试；状态非法跳转被拒绝；迁移升级与回滚说明完整。

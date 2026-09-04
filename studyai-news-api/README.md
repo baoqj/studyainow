@@ -31,8 +31,8 @@ The production Worker is intentionally private and is called by `studyai-news-we
 
 ```bash
 npm install
-npm run dev
 npm run db:migrate:local
+npm run dev
 npm run db:verify
 npm run typecheck
 npm test
