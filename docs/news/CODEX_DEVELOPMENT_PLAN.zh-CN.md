@@ -1,6 +1,6 @@
 # news.studyai.now Codex 开发计划
 
-> 状态：P0-4 已完成并部署；等待用户指令开始 P0-5
+> 状态：P0-5 工程范围已完成并部署；100 篇人工标注相关性评测待建立数据集；等待用户指令开始 P0-6
 >
 > 编制日期：2026-09-03
 >
@@ -11,6 +11,10 @@
 > P0-2 验收记录：[`P0-2_RELEASE_REPORT.zh-CN.md`](./P0-2_RELEASE_REPORT.zh-CN.md)
 >
 > P0-3 验收记录：[`P0-3_RELEASE_REPORT.zh-CN.md`](./P0-3_RELEASE_REPORT.zh-CN.md)
+>
+> P0-4 验收记录：[`P0-4_RELEASE_REPORT.zh-CN.md`](./P0-4_RELEASE_REPORT.zh-CN.md)
+>
+> P0-5 验收记录：[`P0-5_RELEASE_REPORT.zh-CN.md`](./P0-5_RELEASE_REPORT.zh-CN.md)
 >
 > Git 根：`/Users/aibao/Documents/Project/AI-course/studyainow/Code`
 >
@@ -239,6 +243,8 @@ test(news-api): ...
 - Gate：无来源的新事实导致草稿失败或回到人工队列。
 
 ### P0-5：技能/课程只读关联
+
+状态：**工程范围已完成并部署（2026-09-04）**。Core 只读目录契约、关键词与 Vectorize 混合召回、可审计建议、统一后台审核、公共新闻站及主站新闻导航均已上线；100 篇人工标注集尚未建立，因此 Precision@5 / Recall@10 数值 Gate 保持待验收。详见 P0-5 验收记录。
 
 - 输出：Core 数据快照/契约、关键词 + Vectorize 召回、重排、证据、阈值和审核队列。
 - 测试：人工标注集 Precision@5、Recall@10；无效/合并/禁用 ID；Core 不可用时降级；阅读新闻绝不写成“掌握技能”。
