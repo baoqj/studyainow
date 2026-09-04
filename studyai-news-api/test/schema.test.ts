@@ -38,6 +38,8 @@ describe('News D1 migrations', () => {
     expect(migrations.map(({ file }) => file)).toEqual([
       '0001_news_content_schema.sql',
       '0002_article_state_machine.sql',
+      '0003_ingestion_runtime.sql',
+      '0004_seed_p0_sources.sql',
     ]);
 
     const db = openDatabase();
@@ -47,7 +49,7 @@ describe('News D1 migrations', () => {
         .get(),
     ).toEqual({ value: '1' });
 
-    applyMigrations(db, 1, 2);
+    applyMigrations(db, 1);
 
     const schemaVersion = db
       .prepare("SELECT value FROM schema_metadata WHERE key = 'news_schema_version'")
@@ -93,6 +95,9 @@ describe('News D1 migrations', () => {
       'episode_chapter',
       'transcript_segment',
       'article_status_transition',
+      'source_ingestion_policy',
+      'source_fetch_run',
+      'source_feed_snapshot',
     ]));
 
     for (const forbiddenTable of ['users', 'organizations', 'skills', 'courses', 'knowledge_points']) {
@@ -114,9 +119,47 @@ describe('News D1 migrations', () => {
       'idx_workflow_run_status_created',
       'idx_audit_log_object_created',
       'idx_transcript_segment_episode_time',
+      'idx_source_ingestion_policy_status',
+      'idx_source_fetch_run_status_started',
+      'idx_source_feed_snapshot_source_fetched',
     ]));
 
     expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+  });
+
+  it('seeds ten approved feed-only sources without enabling HTML crawling', () => {
+    const db = openDatabase();
+    applyMigrations(db);
+
+    expect(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM news_source AS source
+      JOIN source_ingestion_policy AS policy ON policy.source_id = source.id
+      WHERE source.status = 'active'
+        AND policy.policy_status = 'approved'
+        AND policy.robots_status = 'allowed'
+        AND policy.allow_html_fetch = 0
+    `).get()).toEqual({ count: 10 });
+
+    expect(db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM source_ingestion_policy
+      WHERE max_response_bytes > 1048576 OR max_items_per_poll > 20
+    `).get()).toEqual({ count: 0 });
+
+    expect(() => db.prepare(`
+      INSERT INTO source_ingestion_policy (
+        source_id, fetch_url, allowed_hosts_json, policy_status, robots_status,
+        policy_reviewed_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      'openai-news',
+      'https://openai.com/invalid.xml',
+      '["openai.com"]',
+      'approved',
+      'disallowed',
+      '2026-09-03T00:00:00.000Z',
+    )).toThrow();
   });
 
   it('keeps the SQL transition table synchronized with the application contract', () => {

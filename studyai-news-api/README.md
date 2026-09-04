@@ -2,7 +2,9 @@
 
 Cloudflare Worker backend for StudyAI News.
 
-P0-1 status: independent News D1 schema and human-gated article publication state machine. Ingestion and editorial HTTP APIs begin in P0-2 and later milestones.
+P0-2 status: the independent News D1 schema now includes an approved-source registry,
+bounded RSS/Atom ingestion, private R2 feed snapshots, source health and operator APIs.
+Story clustering, classification and entities remain P0-3 work.
 
 ## Boundary
 
@@ -19,11 +21,11 @@ The only Git root is the parent repository at `studyainow/Code`. Do not initiali
 
 ## Runtime names
 
-| Environment | Worker | D1 |
-|---|---|---|
-| Development | `studyai-news-api-dev` | local persistence for `studyai-news-db-staging` |
-| Staging | `studyai-news-api-staging` | `studyai-news-db-staging` |
-| Production | `studyai-news-api` | `studyai-news-db` |
+| Environment | Worker | D1 | Private R2 |
+|---|---|---|---|
+| Development | `studyai-news-api-dev` | local persistence for `studyai-news-db-staging` | local persistence for `studyai-news-media-staging` |
+| Staging | `studyai-news-api-staging` | `studyai-news-db-staging` | `studyai-news-media-staging` |
+| Production | `studyai-news-api` | `studyai-news-db` | `studyai-news-media` |
 
 The production Worker is intentionally private and is called by `studyai-news-web` through the `NEWS_API` Service Binding.
 
@@ -44,14 +46,55 @@ npm run deploy
 
 `npm run deploy:staging` and `npm run deploy` always run the full local check, apply pending migrations to the matching remote D1, and only then deploy the Worker. Released migration files are append-only and must not be edited in place.
 
+The staging and production environments run the ingestion scheduler every 15 minutes.
+Each scheduled invocation claims no more than two due sources; each source has its
+own minimum polling interval and processes at most 20 current feed entries.
+
+Configure the bootstrap operator credential as a Worker secret; never store it in
+`.dev.vars`, shell history or Git:
+
+```bash
+npx wrangler secret put INGEST_ADMIN_TOKEN --env staging
+npx wrangler secret put INGEST_ADMIN_TOKEN --env production
+```
+
+The credential must contain at least 32 characters. P0-6 replaces this bootstrap
+boundary with Cloudflare Access JWT validation and role mapping.
+
 The health endpoint returns HTTP 503 until the bound database reports the expected schema version. This prevents application code from being treated as healthy before its migration is present.
+
+## Ingestion boundary
+
+- Only active sources whose policy and robots reviews are approved are scheduled.
+- Fetch targets are HTTPS-only exact-host allowlists. IP literals, private/runtime
+  service names, credentials and non-standard ports are rejected; each redirect is
+  independently checked. Cloudflare's `global_fetch_strictly_public` runtime flag
+  also blocks DNS-resolved private targets.
+- Requests use an honest `StudyAI-NewsBot` user agent, conditional HTTP validators,
+  a 10-second timeout and a 1 MiB streamed response ceiling.
+- Feed snapshots are stored only in private R2 and registered as `restricted` in D1.
+  Public APIs do not expose third-party feed bodies or full text.
+- HTTP 429/5xx and parser/network failures are isolated per source and retried with
+  bounded exponential backoff; `Retry-After` is honored up to 24 hours.
+- The approved source list and live-probe evidence are recorded in
+  [`../docs/news/P0-2_SOURCE_AUDIT.zh-CN.md`](../docs/news/P0-2_SOURCE_AUDIT.zh-CN.md).
 
 ## Schema rollback
 
-P0-1 migrations create new, empty News-only databases and do not modify StudyAINow Core data. They are additive and intentionally have no destructive down migration. If the Worker release must be rolled back, deploy the prior Worker version and leave the new tables in place; follow-up schema changes must use a new forward migration. Before any later migration that changes production data, create and verify a D1 export or Time Travel recovery point.
+News migrations do not modify StudyAINow Core data. They are additive and intentionally have no destructive down migration. If the Worker release must be rolled back, deploy the prior Worker version and leave the new tables in place; follow-up schema changes must use a new forward migration. Before any later migration that changes production data, create and verify a D1 export or Time Travel recovery point. R2 source snapshots are private operational evidence and are not removed by a Worker rollback.
 
 ## Current endpoints
 
 - `GET /api/news/v1/health`
+- `GET /api/admin/news/sources`
+- `POST /api/admin/news/sources/probe`
+- `POST /api/admin/news/sources`
+- `PATCH /api/admin/news/sources/{sourceId}`
+- `DELETE /api/admin/news/sources/{sourceId}`
+- `POST /api/admin/news/sources/{sourceId}/run` (requires `Idempotency-Key`)
+
+All `/api/admin/news/*` endpoints require `Authorization: Bearer …`. Newly created
+sources are always paused with `review_required`; an operator must separately record
+robots/policy approval before the scheduler can run them.
 
 Product requirements remain in `../../PRD/News/`. The approved execution plan is `../docs/news/CODEX_DEVELOPMENT_PLAN.zh-CN.md`.

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { API_VERSION, app } from '../src/app';
 import type { Env } from '../src/env';
 
-function schemaDatabase(version = '2'): D1Database {
+function schemaDatabase(version = '4'): D1Database {
   return {
     prepare: () => ({
       first: async () => ({ value: version }),
@@ -12,6 +12,8 @@ function schemaDatabase(version = '2'): D1Database {
 
 const testEnv: Env = {
   DB: schemaDatabase(),
+  MEDIA: {} as R2Bucket,
+  INGEST_ADMIN_TOKEN: 'test-ingestion-token-that-is-long-enough',
   ENVIRONMENT: 'test',
   RELEASE_VERSION: 'test-release',
 };
@@ -35,8 +37,8 @@ describe('StudyAI News API foundation', () => {
       environment: 'test',
       database: {
         ok: true,
-        currentVersion: 2,
-        expectedVersion: 2,
+        currentVersion: 4,
+        expectedVersion: 4,
       },
       traceId: 'p0-0-test-trace',
     });
@@ -55,7 +57,7 @@ describe('StudyAI News API foundation', () => {
       database: {
         ok: false,
         currentVersion: 1,
-        expectedVersion: 2,
+        expectedVersion: 4,
       },
       error: { code: 'schema_unavailable' },
     });
@@ -92,6 +94,20 @@ describe('StudyAI News API foundation', () => {
     await expect(response.json()).resolves.toMatchObject({
       ok: false,
       error: { code: 'not_found' },
+    });
+  });
+
+  it('protects ingestion administration routes with a bearer token', async () => {
+    const response = await app.request('/api/admin/news/sources', undefined, {
+      ...testEnv,
+      INGEST_ADMIN_TOKEN: 'expected-ingestion-token-with-32-characters',
+    });
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toContain('Bearer');
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      error: { code: 'unauthorized' },
     });
   });
 });

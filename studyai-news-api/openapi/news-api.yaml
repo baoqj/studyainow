@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: StudyAI News API
-  version: 0.2.0
+  version: 0.3.0
   description: Versioned contract for the StudyAI News public and editorial APIs.
 servers:
   - url: https://news.studyai.now
@@ -29,7 +29,158 @@ paths:
                 $ref: "#/components/schemas/SchemaUnavailableResponse"
         "405":
           $ref: "#/components/responses/MethodNotAllowed"
+  /api/admin/news/sources:
+    get:
+      operationId: listNewsSources
+      summary: List approved source configuration and ingestion health
+      security:
+        - ingestionOperator: []
+      responses:
+        "200":
+          description: Source health list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceHealthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createNewsSource
+      summary: Create a paused source pending policy review
+      security:
+        - ingestionOperator: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceCreateRequest"
+      responses:
+        "201":
+          description: Paused source created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceMutationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/admin/news/sources/probe:
+    post:
+      operationId: probeNewsSource
+      summary: Validate robots policy, safety limits, feed structure and quality
+      security:
+        - ingestionOperator: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceProbeRequest"
+      responses:
+        "200":
+          description: Source probe result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceProbeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /api/admin/news/sources/{sourceId}:
+    parameters:
+      - $ref: "#/components/parameters/SourceId"
+    patch:
+      operationId: updateNewsSource
+      summary: Update source status or policy review state
+      security:
+        - ingestionOperator: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SourceUpdateRequest"
+      responses:
+        "200":
+          description: Source updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceMutationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: retireNewsSource
+      summary: Soft-retire a source without deleting evidence
+      security:
+        - ingestionOperator: []
+      responses:
+        "200":
+          description: Source retired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SourceMutationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/admin/news/sources/{sourceId}/run:
+    parameters:
+      - $ref: "#/components/parameters/SourceId"
+    post:
+      operationId: runNewsSource
+      summary: Run one approved source with idempotency protection
+      security:
+        - ingestionOperator: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema:
+            type: string
+            minLength: 8
+            maxLength: 120
+      responses:
+        "200":
+          description: Ingestion completed or was deduplicated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualIngestionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          description: Source ingestion failed and was recorded for retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManualIngestionResponse"
 components:
+  securitySchemes:
+    ingestionOperator:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-operator-token
+  parameters:
+    SourceId:
+      name: sourceId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
   schemas:
     HealthResponse:
       type: object
@@ -127,6 +278,189 @@ components:
               type: string
         traceId:
           type: string
+    SourceHealthResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, sources, traceId]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceHealth"
+        traceId:
+          type: string
+    SourceHealth:
+      type: object
+      additionalProperties: true
+      required: [id, name, sourceType, trustTier, status, fetchUrl, policyStatus, robotsStatus, allowHtmlFetch, consecutiveFailures]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        sourceType:
+          type: string
+          enum: [rss, atom]
+        trustTier:
+          type: string
+          enum: [A, B, C, D]
+        status:
+          type: string
+          enum: [active, paused, retired]
+        fetchUrl:
+          type: string
+          format: uri
+        policyStatus:
+          type: string
+          enum: [review_required, approved, blocked]
+        robotsStatus:
+          type: string
+          enum: [unknown, allowed, disallowed, error]
+        allowHtmlFetch:
+          type: integer
+          enum: [0]
+        consecutiveFailures:
+          type: integer
+          minimum: 0
+    SourceCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [id, name, homepageUrl, feedUrl, sourceType, trustTier, language, termsNote, allowedHosts]
+      properties:
+        id:
+          type: string
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        name:
+          type: string
+        homepageUrl:
+          type: string
+          format: uri
+        feedUrl:
+          type: string
+          format: uri
+        sourceType:
+          type: string
+          enum: [rss, atom]
+        trustTier:
+          type: string
+          enum: [A, B, C, D]
+        language:
+          type: string
+        termsNote:
+          type: string
+        allowedHosts:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: string
+        scheduleCron:
+          type: string
+        maxResponseBytes:
+          type: integer
+          minimum: 1024
+          maximum: 1048576
+        maxItemsPerPoll:
+          type: integer
+          minimum: 1
+          maximum: 20
+        minPollIntervalSeconds:
+          type: integer
+          minimum: 900
+          maximum: 86400
+    SourceUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [active, paused, retired]
+        policyStatus:
+          type: string
+          enum: [review_required, approved, blocked]
+        robotsStatus:
+          type: string
+          enum: [unknown, allowed, disallowed, error]
+        policyReviewedAt:
+          type: string
+          format: date-time
+        nextPolicyReviewAt:
+          type: string
+          format: date-time
+        scheduleCron:
+          type: string
+        reason:
+          type: string
+    SourceMutationResponse:
+      type: object
+      additionalProperties: true
+      required: [ok, traceId]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        sourceId:
+          type: string
+        status:
+          type: string
+        policyStatus:
+          type: string
+        traceId:
+          type: string
+    SourceProbeRequest:
+      type: object
+      additionalProperties: false
+      required: [feedUrl, allowedHosts, sourceType, trustTier, language]
+      properties:
+        feedUrl:
+          type: string
+          format: uri
+        allowedHosts:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items:
+            type: string
+        sourceType:
+          type: string
+          enum: [rss, atom]
+        trustTier:
+          type: string
+          enum: [A, B, C, D]
+        language:
+          type: string
+        maxItemsPerPoll:
+          type: integer
+          minimum: 1
+          maximum: 20
+    SourceProbeResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, probe, traceId]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        probe:
+          type: object
+          additionalProperties: true
+        traceId:
+          type: string
+    ManualIngestionResponse:
+      type: object
+      additionalProperties: false
+      required: [ok, result, traceId]
+      properties:
+        ok:
+          type: boolean
+        result:
+          type: object
+          additionalProperties: true
+        traceId:
+          type: string
     ErrorResponse:
       type: object
       additionalProperties: false
@@ -152,6 +486,24 @@ components:
         traceId:
           type: string
   responses:
+    BadRequest:
+      description: Request validation or source policy failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Ingestion operator token is missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Source was not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
     MethodNotAllowed:
       description: Method is not supported for this route
       headers:

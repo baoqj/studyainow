@@ -1,6 +1,6 @@
 {
   "name": "studyai-news-api",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -27,7 +27,9 @@
     "cf-typegen": "wrangler types"
   },
   "dependencies": {
-    "hono": "^4.13.5"
+    "fast-xml-parser": "^5.11.1",
+    "hono": "^4.13.5",
+    "robots-parser": "^3.0.1"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

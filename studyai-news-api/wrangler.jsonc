@@ -3,11 +3,12 @@
   "name": "studyai-news-api-dev",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-03",
+  "compatibility_flags": ["global_fetch_strictly_public"],
   "workers_dev": true,
   "preview_urls": true,
   "vars": {
     "ENVIRONMENT": "development",
-    "RELEASE_VERSION": "0.2.0"
+    "RELEASE_VERSION": "0.3.0"
   },
   "d1_databases": [
     {
@@ -15,6 +16,12 @@
       "database_name": "studyai-news-db-staging",
       "database_id": "dd2dbc41-0c90-4a0d-ac41-cc19a19d43b7",
       "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "studyai-news-media-staging"
     }
   ],
   "observability": {
@@ -27,7 +34,7 @@
       "preview_urls": true,
       "vars": {
         "ENVIRONMENT": "staging",
-        "RELEASE_VERSION": "0.2.0"
+        "RELEASE_VERSION": "0.3.0"
       },
       "d1_databases": [
         {
@@ -36,7 +43,16 @@
           "database_id": "dd2dbc41-0c90-4a0d-ac41-cc19a19d43b7",
           "migrations_dir": "migrations"
         }
-      ]
+      ],
+      "r2_buckets": [
+        {
+          "binding": "MEDIA",
+          "bucket_name": "studyai-news-media-staging"
+        }
+      ],
+      "triggers": {
+        "crons": ["*/15 * * * *"]
+      }
     },
     "production": {
       "name": "studyai-news-api",
@@ -44,7 +60,7 @@
       "preview_urls": false,
       "vars": {
         "ENVIRONMENT": "production",
-        "RELEASE_VERSION": "0.2.0"
+        "RELEASE_VERSION": "0.3.0"
       },
       "d1_databases": [
         {
@@ -53,7 +69,16 @@
           "database_id": "58c59b6e-06b0-4300-bde9-f9e9062478a6",
           "migrations_dir": "migrations"
         }
-      ]
+      ],
+      "r2_buckets": [
+        {
+          "binding": "MEDIA",
+          "bucket_name": "studyai-news-media"
+        }
+      ],
+      "triggers": {
+        "crons": ["*/15 * * * *"]
+      }
     }
   }
 }
