@@ -1,4 +1,5 @@
 import type { Env } from '../env';
+import { PARSER_VERSION } from './feed-parser';
 import { probeSourceFeed } from './probe';
 import { listSourceHealth } from './repository';
 import { runManualIngestion } from './service';
@@ -101,7 +102,7 @@ export async function createSource(env: Env, request: Request, traceId: string):
       INSERT INTO news_source (
         id, name, base_url, source_type, trust_tier, language, schedule_cron,
         parser_key, terms_note, full_text_authorized, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'rss_atom_v1', ?, 0, 'paused')
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'paused')
     `).bind(
       id,
       string(body.name, 'name', 200),
@@ -110,6 +111,7 @@ export async function createSource(env: Env, request: Request, traceId: string):
       tier,
       string(body.language, 'language', 35),
       optionalString(body.scheduleCron, 'schedule_cron', 80),
+      PARSER_VERSION,
       string(body.termsNote, 'terms_note', 2000),
     ),
     env.DB.prepare(`

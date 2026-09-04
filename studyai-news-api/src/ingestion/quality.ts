@@ -9,22 +9,31 @@ const BASIC_ENTITIES: Record<string, string> = {
   quot: '"',
 };
 
-export function htmlToPlainText(value: string): string {
+function decodeHtmlEntities(value: string): string {
   return value
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity: string) => {
+      if (entity.startsWith('#x')) {
+        const codePoint = Number.parseInt(entity.slice(2), 16);
+        return Number.isFinite(codePoint) && codePoint <= 0x10ffff
+          ? String.fromCodePoint(codePoint)
+          : match;
+      }
+      if (entity.startsWith('#')) {
+        const codePoint = Number.parseInt(entity.slice(1), 10);
+        return Number.isFinite(codePoint) && codePoint <= 0x10ffff
+          ? String.fromCodePoint(codePoint)
+          : match;
+      }
+      return BASIC_ENTITIES[entity.toLowerCase()] ?? ' ';
+    });
+}
+
+export function htmlToPlainText(value: string): string {
+  const decoded = decodeHtmlEntities(decodeHtmlEntities(value));
+  return decoded
     .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
     .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity: string) => {
-      if (entity.startsWith('#x')) {
-        const value = Number.parseInt(entity.slice(2), 16);
-        return Number.isFinite(value) ? String.fromCodePoint(value) : match;
-      }
-      if (entity.startsWith('#')) {
-        const value = Number.parseInt(entity.slice(1), 10);
-        return Number.isFinite(value) ? String.fromCodePoint(value) : match;
-      }
-      return BASIC_ENTITIES[entity.toLowerCase()] ?? ' ';
-    })
     .replace(/\s+/g, ' ')
     .trim();
 }

@@ -4,7 +4,7 @@ import { assessFeedItemQuality, htmlToPlainText } from './quality';
 import type { IngestionSource, ParsedFeed, ParsedFeedItem } from './types';
 import { canonicalizeArticleUrl } from './url';
 
-const PARSER_VERSION = 'rss_atom_v1';
+const PARSER_VERSION = 'rss_atom_v2';
 
 type XmlValue = string | number | boolean | null | XmlValue[] | { [key: string]: XmlValue };
 

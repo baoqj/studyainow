@@ -14,6 +14,7 @@ interface SourceRow {
   trust_tier: 'A' | 'B' | 'C' | 'D';
   language: string;
   schedule_cron: string | null;
+  parser_key: string;
   fetch_url: string;
   allowed_hosts_json: string;
   max_response_bytes: number;
@@ -22,6 +23,7 @@ interface SourceRow {
   etag: string | null;
   last_modified: string | null;
   last_content_hash: string | null;
+  last_parser_version: string | null;
   consecutive_failures: number;
 }
 
@@ -34,6 +36,7 @@ const SOURCE_SELECT = `
     source.trust_tier,
     source.language,
     source.schedule_cron,
+    source.parser_key,
     policy.fetch_url,
     policy.allowed_hosts_json,
     policy.max_response_bytes,
@@ -42,6 +45,7 @@ const SOURCE_SELECT = `
     cursor.etag,
     cursor.last_modified,
     cursor.last_content_hash,
+    cursor.last_parser_version,
     cursor.consecutive_failures
   FROM news_source AS source
   JOIN source_ingestion_policy AS policy ON policy.source_id = source.id
@@ -62,6 +66,7 @@ function mapSource(row: SourceRow): IngestionSource {
     trustTier: row.trust_tier,
     language: row.language,
     scheduleCron: row.schedule_cron,
+    parserKey: row.parser_key,
     fetchUrl: row.fetch_url,
     allowedHosts,
     maxResponseBytes: row.max_response_bytes,
@@ -70,6 +75,7 @@ function mapSource(row: SourceRow): IngestionSource {
     etag: row.etag,
     lastModified: row.last_modified,
     lastContentHash: row.last_content_hash,
+    lastParserVersion: row.last_parser_version,
     consecutiveFailures: row.consecutive_failures,
   };
 }
@@ -116,14 +122,37 @@ export async function beginFetchRun(
   trigger: IngestionTrigger,
   idempotencyKey: string,
   requestedAt: string,
+  parserVersion: string,
 ): Promise<boolean> {
   const result = await db.prepare(`
     INSERT OR IGNORE INTO source_fetch_run (
-      id, source_id, trigger_type, status, idempotency_key, requested_at, started_at
-    ) VALUES (?, ?, ?, 'running', ?, ?, ?)
-  `).bind(runId, sourceId, trigger, idempotencyKey, requestedAt, requestedAt).run();
+      id, source_id, trigger_type, status, idempotency_key, requested_at,
+      started_at, parser_version
+    ) VALUES (?, ?, ?, 'running', ?, ?, ?, ?)
+  `).bind(
+    runId,
+    sourceId,
+    trigger,
+    idempotencyKey,
+    requestedAt,
+    requestedAt,
+    parserVersion,
+  ).run();
 
   return Number(result.meta.changes ?? 0) === 1;
+}
+
+export async function findSnapshotKey(
+  db: D1Database,
+  sourceId: string,
+  responseHash: string,
+): Promise<string | null> {
+  const row = await db.prepare(`
+    SELECT storage_key FROM source_feed_snapshot
+    WHERE source_id = ? AND response_hash = ?
+    LIMIT 1
+  `).bind(sourceId, responseHash).first<{ storage_key: string }>();
+  return row?.storage_key ?? null;
 }
 
 interface PersistItemCounts {
@@ -246,7 +275,7 @@ export async function completeNotModified(
         last_checked_at = ?, last_success_at = ?, consecutive_failures = 0,
         next_allowed_at = ?, last_http_status = ?, last_error_code = NULL,
         last_duration_ms = ?, last_content_hash = COALESCE(?, last_content_hash),
-        updated_at = ?
+        last_parser_version = ?, updated_at = ?
       WHERE source_id = ? AND cursor_key = 'main'
     `).bind(
       input.etag,
@@ -257,6 +286,7 @@ export async function completeNotModified(
       input.httpStatus,
       input.durationMs,
       input.responseHash,
+      PARSER_VERSION,
       input.finishedAt,
       input.sourceId,
     ),
@@ -291,7 +321,7 @@ interface SuccessInput extends CompletionInput {
 export async function completeSucceeded(db: D1Database, input: SuccessInput): Promise<void> {
   await db.batch([
     db.prepare(`
-      INSERT INTO source_feed_snapshot (
+      INSERT OR IGNORE INTO source_feed_snapshot (
         id, source_id, fetch_run_id, storage_key, response_hash,
         content_type, byte_size, access_policy, fetched_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'restricted', ?)
@@ -310,7 +340,7 @@ export async function completeSucceeded(db: D1Database, input: SuccessInput): Pr
         cursor_value = ?, etag = ?, last_modified = ?, last_checked_at = ?,
         last_success_at = ?, consecutive_failures = 0, next_allowed_at = ?,
         last_http_status = ?, last_error_code = NULL, last_duration_ms = ?,
-        last_content_hash = ?, updated_at = ?
+        last_content_hash = ?, last_parser_version = ?, updated_at = ?
       WHERE source_id = ? AND cursor_key = 'main'
     `).bind(
       input.cursorValue,
@@ -322,6 +352,7 @@ export async function completeSucceeded(db: D1Database, input: SuccessInput): Pr
       input.httpStatus,
       input.durationMs,
       input.responseHash,
+      PARSER_VERSION,
       input.finishedAt,
       input.sourceId,
     ),

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: StudyAI News API
-  version: 0.3.0
+  version: 0.3.1
   description: Versioned contract for the StudyAI News public and editorial APIs.
 servers:
   - url: https://news.studyai.now

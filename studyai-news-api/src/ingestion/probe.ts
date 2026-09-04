@@ -64,6 +64,7 @@ export async function probeSourceFeed(
     trustTier: input.trustTier,
     language: input.language,
     scheduleCron: null,
+    parserKey: 'rss_atom_v2',
     fetchUrl: feedUrl.toString(),
     allowedHosts: input.allowedHosts,
     maxResponseBytes: 1048576,
@@ -72,6 +73,7 @@ export async function probeSourceFeed(
     etag: null,
     lastModified: null,
     lastContentHash: null,
+    lastParserVersion: null,
     consecutiveFailures: 0,
   };
   const document = await fetchFeedDocument(source, fetchImplementation);

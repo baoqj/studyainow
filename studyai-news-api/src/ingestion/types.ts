@@ -10,6 +10,7 @@ export interface IngestionSource {
   trustTier: TrustTier;
   language: string;
   scheduleCron: string | null;
+  parserKey: string;
   fetchUrl: string;
   allowedHosts: string[];
   maxResponseBytes: number;
@@ -18,6 +19,7 @@ export interface IngestionSource {
   etag: string | null;
   lastModified: string | null;
   lastContentHash: string | null;
+  lastParserVersion: string | null;
   consecutiveFailures: number;
 }
 

@@ -40,6 +40,7 @@ describe('News D1 migrations', () => {
       '0002_article_state_machine.sql',
       '0003_ingestion_runtime.sql',
       '0004_seed_p0_sources.sql',
+      '0005_parser_reprocessing.sql',
     ]);
 
     const db = openDatabase();
@@ -136,6 +137,7 @@ describe('News D1 migrations', () => {
       FROM news_source AS source
       JOIN source_ingestion_policy AS policy ON policy.source_id = source.id
       WHERE source.status = 'active'
+        AND source.parser_key = 'rss_atom_v2'
         AND policy.policy_status = 'approved'
         AND policy.robots_status = 'allowed'
         AND policy.allow_html_fetch = 0

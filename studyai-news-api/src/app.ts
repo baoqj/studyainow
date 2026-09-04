@@ -12,7 +12,7 @@ import {
 import { inspectNewsSchema } from './schema-health';
 import { resolveTraceId } from './trace';
 
-export const API_VERSION = '0.3.0';
+export const API_VERSION = '0.3.1';
 
 type Bindings = {
   Bindings: Env;

@@ -73,7 +73,11 @@ The health endpoint returns HTTP 503 until the bound database reports the expect
 - Requests use an honest `StudyAI-NewsBot` user agent, conditional HTTP validators,
   a 10-second timeout and a 1 MiB streamed response ceiling.
 - Feed snapshots are stored only in private R2 and registered as `restricted` in D1.
-  Public APIs do not expose third-party feed bodies or full text.
+  Public APIs do not expose third-party feed bodies or full text. The `source-feed/`
+  prefix expires after 90 days in both remote buckets while the audit metadata remains.
+- Parser versions are recorded on source items, fetch runs and cursors. A parser upgrade
+  can rebuild normalized D1 fields from one fresh fetch while reusing the immutable R2
+  snapshot instead of storing a duplicate third-party payload.
 - HTTP 429/5xx and parser/network failures are isolated per source and retried with
   bounded exponential backoff; `Retry-After` is honored up to 24 hours.
 - The approved source list and live-probe evidence are recorded in

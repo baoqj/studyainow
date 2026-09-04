@@ -1,5 +1,5 @@
 import type { Env } from '../env';
-import { parseFeedDocument } from './feed-parser';
+import { parseFeedDocument, PARSER_VERSION } from './feed-parser';
 import { fetchFeedDocument, IngestionFetchError } from './fetcher';
 import { sha256Hex } from './hash';
 import {
@@ -7,6 +7,7 @@ import {
   completeFailed,
   completeNotModified,
   completeSucceeded,
+  findSnapshotKey,
   getIngestionSource,
   listRunnableSources,
   persistFeedItems,
@@ -104,6 +105,7 @@ export async function ingestSource(
     options.trigger,
     idempotencyKey,
     requestedAt.toISOString(),
+    PARSER_VERSION,
   );
 
   if (!started) {
@@ -138,7 +140,11 @@ export async function ingestSource(
 
     if (
       document.status === 'not_modified'
-      || (document.responseHash !== null && document.responseHash === source.lastContentHash)
+      || (
+        document.responseHash !== null
+        && document.responseHash === source.lastContentHash
+        && source.lastParserVersion === PARSER_VERSION
+      )
     ) {
       await completeNotModified(env.DB, completionBase);
       return {
@@ -163,21 +169,27 @@ export async function ingestSource(
     const itemCounts = await persistFeedItems(env.DB, source, parsed.items, finishedAt.toISOString());
     const qualityAverage = parsed.items.reduce((sum, item) => sum + item.qualityScore, 0)
       / parsed.items.length;
-    const objectKey = snapshotKey(source.id, runId, finishedAt);
+    const existingSnapshotKey = await findSnapshotKey(env.DB, source.id, document.responseHash);
+    const objectKey = existingSnapshotKey ?? snapshotKey(source.id, runId, finishedAt);
     const snapshotId = `snapshot_${(await sha256Hex(`${source.id}\n${document.responseHash}`)).slice(0, 32)}`;
+    const existingSnapshot = existingSnapshotKey
+      ? await env.MEDIA.head(existingSnapshotKey)
+      : null;
 
-    await env.MEDIA.put(objectKey, document.body, {
-      httpMetadata: {
-        contentType: document.contentType ?? 'application/xml',
-      },
-      customMetadata: {
-        sourceId: source.id,
-        runId,
-        responseHash: document.responseHash,
-        accessPolicy: 'restricted',
-      },
-      sha256: document.responseHash,
-    });
+    if (!existingSnapshot) {
+      await env.MEDIA.put(objectKey, document.body, {
+        httpMetadata: {
+          contentType: document.contentType ?? 'application/xml',
+        },
+        customMetadata: {
+          sourceId: source.id,
+          runId,
+          responseHash: document.responseHash,
+          accessPolicy: 'restricted',
+        },
+        sha256: document.responseHash,
+      });
+    }
 
     const cursorValue = parsed.items
       .map((item) => item.publishedAt)

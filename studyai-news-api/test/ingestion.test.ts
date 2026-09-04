@@ -13,6 +13,7 @@ const source: IngestionSource = {
   trustTier: 'A',
   language: 'en',
   scheduleCron: '0 * * * *',
+  parserKey: 'rss_atom_v2',
   fetchUrl: 'https://example.com/feed.xml',
   allowedHosts: ['example.com'],
   maxResponseBytes: 1024,
@@ -21,6 +22,7 @@ const source: IngestionSource = {
   etag: '"feed-v1"',
   lastModified: 'Wed, 02 Sep 2026 12:00:00 GMT',
   lastContentHash: null,
+  lastParserVersion: null,
   consecutiveFailures: 0,
 };
 
@@ -71,6 +73,8 @@ describe('RSS and Atom parsing', () => {
       publishedAt: '2026-09-02T12:00:00.000Z',
     });
     expect(parsed.items[0]?.summary).not.toContain('ignore()');
+    expect(htmlToPlainText('&lt;p&gt;Useful text&lt;/p&gt;&lt;script&gt;ignore()&lt;/script&gt;'))
+      .toBe('Useful text');
     expect(parsed.items[0]?.qualityScore).toBeGreaterThanOrEqual(70);
   });
 
