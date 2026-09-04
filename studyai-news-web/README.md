@@ -2,7 +2,10 @@
 
 Cloudflare Worker frontend for `news.studyai.now`.
 
-P0-0 status: Astro/React foundation, server-rendered operational page and same-origin API forwarding through the `NEWS_API` Service Binding. Article, daily, podcast and editor features begin in later milestones.
+P0-3 status: Astro/React foundation, server-rendered operational page, same-origin API
+forwarding, and the `/admin/news` editorial console. Administrators can review clustered
+candidates, lock categories/tags, create and revise articles, approve, publish, correct,
+withdraw and reopen content, and maintain the controlled taxonomy.
 
 ## Boundary
 
@@ -45,7 +48,11 @@ npm run deploy
 ## Current routes
 
 - `GET /` — server-rendered foundation status
+- `GET /admin/news` — editorial dashboard
+- `GET /admin/news/candidates` — clustered candidate inbox
+- `GET /admin/news/articles` and `/admin/news/articles/{id}` — article list/editor
+- `GET /admin/news/taxonomy` — category and tag management
 - `ALL /api/news/v1/*` — forwarded to the API Worker
-- `ALL /api/admin/news/*` — reserved forwarding boundary
+- `ALL /api/admin/news/*` — authenticated editorial API forwarding boundary
 
 Product requirements remain in `../../PRD/News/`. The approved execution plan is `../docs/news/CODEX_DEVELOPMENT_PLAN.zh-CN.md`.

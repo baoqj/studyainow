@@ -49,6 +49,20 @@ main {
   text-decoration: none;
 }
 
+.site-header nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-header .admin-entry {
+  padding: 7px 10px;
+  border-bottom: 1px solid #0b6e99;
+  color: #0b6e99;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
 .brand-mark {
   display: grid;
   width: 34px;

@@ -19,7 +19,7 @@
   ],
   "vars": {
     "ENVIRONMENT": "development",
-    "RELEASE_VERSION": "0.1.0"
+    "RELEASE_VERSION": "0.2.0"
   },
   "observability": {
     "enabled": true
@@ -42,7 +42,7 @@
       ],
       "vars": {
         "ENVIRONMENT": "staging",
-        "RELEASE_VERSION": "0.1.0"
+        "RELEASE_VERSION": "0.2.0"
       }
     },
     "production": {
@@ -68,7 +68,7 @@
       ],
       "vars": {
         "ENVIRONMENT": "production",
-        "RELEASE_VERSION": "0.1.0"
+        "RELEASE_VERSION": "0.2.0"
       }
     }
   }

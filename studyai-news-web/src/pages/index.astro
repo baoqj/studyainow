@@ -21,14 +21,17 @@ const message = result.ok ? null : result.message;
         <span class="brand-mark" aria-hidden="true">S</span>
         <span>StudyAI News</span>
       </a>
-      <span class="phase-badge">FOUNDATION</span>
+      <nav aria-label="页面导航">
+        <a class="admin-entry" href="/admin/news">进入编辑台</a>
+        <span class="phase-badge">P0-3</span>
+      </nav>
     </header>
 
     <section class="hero">
       <p class="eyebrow">AI 情报与能力地图</p>
       <h1>把 AI 新闻变成<br /><em>能学、能练、能用</em>的能力。</h1>
       <p class="hero-copy">
-        当前完成的是可部署的双 Worker 基线。新闻采集、Claim Ledger、编辑审核与公开内容将在后续单一里程碑中逐步上线。
+        官方来源采集、跨来源聚类、受控分类和人工编辑审核已接入双 Worker 架构。未经人工批准的内容不会发布。
       </p>
     </section>
 
@@ -54,7 +57,7 @@ const message = result.ok ? null : result.message;
 
     <footer>
       <span>news.studyai.now</span>
-      <span>P0-0 · v0.1.0</span>
+      <span>P0-3 · v0.2.0</span>
     </footer>
   </main>
 </BaseLayout>
