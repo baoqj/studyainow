@@ -49,3 +49,7 @@ migrations_dir = "migrations"
 [[r2_buckets]]
 binding = "COURSE_STORAGE"
 bucket_name = "studyainow-storage"
+
+[[services]]
+binding = "NEWS_API"
+service = "studyai-news-api"

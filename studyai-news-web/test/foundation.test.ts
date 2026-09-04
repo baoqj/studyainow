@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { fetchNewsApiHealth, type NewsApiFetcher } from '../src/lib/health';
 import { forwardNewsApi, isAllowedNewsApiPath } from '../src/lib/proxy';
 
@@ -34,10 +35,31 @@ describe('StudyAI News web foundation', () => {
     });
   });
 
-  it('only forwards versioned public and admin News API paths', () => {
+  it('forwards only versioned public News API paths', () => {
     expect(isAllowedNewsApiPath('/api/news/v1/health')).toBe(true);
-    expect(isAllowedNewsApiPath('/api/admin/news/sources')).toBe(true);
+    expect(isAllowedNewsApiPath('/api/admin/news/sources')).toBe(false);
     expect(isAllowedNewsApiPath('/api/auth/me')).toBe(false);
+  });
+
+  it('retires the standalone admin UI and redirects it to the unified control panel', () => {
+    const route = readFileSync(new URL('../src/pages/admin/news/index.astro', import.meta.url), 'utf8');
+    const catchAll = readFileSync(new URL('../src/pages/admin/news/[...path].astro', import.meta.url), 'utf8');
+    for (const source of [route, catchAll]) {
+      expect(source).toContain('https://studyai.now');
+      expect(source).toContain('Astro.redirect');
+      expect(source).toContain('308');
+      expect(source).not.toContain('AdminApp');
+    }
+  });
+
+  it('returns 404 for admin API paths without invoking the private binding', async () => {
+    const fetcher: NewsApiFetcher = { fetch: vi.fn() };
+    const response = await forwardNewsApi(
+      new Request('https://news.studyai.now/api/admin/news/dashboard'),
+      fetcher,
+    );
+    expect(response.status).toBe(404);
+    expect(fetcher.fetch).not.toHaveBeenCalled();
   });
 
   it('forwards requests through the internal API origin', async () => {

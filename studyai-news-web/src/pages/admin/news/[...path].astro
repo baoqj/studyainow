@@ -1,6 +1,4 @@
 ---
-import AdminApp from '../../../components/admin/AdminApp';
-import AdminLayout from '../../../layouts/AdminLayout.astro';
 export const prerender = false;
+return Astro.redirect(`https://studyai.now${Astro.url.pathname}${Astro.url.search}`, 308);
 ---
-<AdminLayout><AdminApp client:load initialPath={Astro.url.pathname} /></AdminLayout>

@@ -4,6 +4,10 @@ interface Env {
   DB: D1Database;
   COURSE_STORAGE: R2Bucket;
   ASSETS: Fetcher;
+  /** Internal Service Binding to the independent StudyAI News API Worker. */
+  NEWS_API?: Fetcher;
+  /** Shared only with studyai-news-api; never exposed to the browser. */
+  NEWS_ADMIN_SERVICE_TOKEN?: string;
   /** Multilingual job-description analysis and embeddings via Workers AI. */
   AI?: Ai;
   /** One current semantic vector per collected job. */

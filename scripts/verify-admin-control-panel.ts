@@ -1,5 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { proxyAdminNews } from '../functions/api/admin/news/proxy';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const migration = read('../migrations/0024_admin_control_panel.sql');
@@ -24,6 +25,8 @@ const userActivityApi = read('../functions/api/admin/users/[userId]/activity.ts'
 const interviewsApi = read('../functions/api/admin/interviews/index.ts');
 const interviewsPage = read('../src/pages/admin/AdminInterviews.tsx');
 const newsPage = read('../src/pages/admin/AdminNews.tsx');
+const newsProxy = read('../functions/api/admin/news/proxy.ts');
+const wrangler = read('../wrangler.toml');
 const interviewAdminCatalog = read('../functions/_lib/interviewCatalog.ts');
 const interviewContent = read('../src/data/interviewContent.ts');
 const organizationAccess = read('../functions/_lib/organizations.ts');
@@ -52,9 +55,10 @@ for (const route of ['/api/admin/overview', '/api/admin/users', '/api/admin/inte
 }
 assert.ok(worker.includes("'/api/activity/page-view'"), 'Worker must record authenticated page views');
 assert.match(worker, /adminUserActivityMatch/, 'Worker must expose per-user activity tabs');
-for (const route of ['users', 'courses', 'community-courses', 'interviews', 'knowledge-graph', 'job-sources', 'jobs', 'news', 'settings']) {
+for (const route of ['users', 'courses', 'community-courses', 'interviews', 'knowledge-graph', 'job-sources', 'jobs', 'settings']) {
   assert.ok(app.includes(`path="${route}"`), `missing nested admin route ${route}`);
 }
+assert.ok(app.includes('path="news/*"'), 'News administration must own addressable child routes in the unified admin shell');
 assert.match(app, /<AdminLayout \/>/, 'admin routes must share the SaaS shell');
 assert.match(app, /path="users\/:userId"/, 'admin users need an addressable detail route');
 assert.match(app, /<UserActivityTracker \/>/, 'authenticated navigation must be recorded');
@@ -66,10 +70,17 @@ assert.match(sidebar, /面试题集.+\/admin\/interviews/, 'admin menu must expo
 assert.match(sidebar, /组织管理.+\/admin\/organizations/, 'administrator menu must expose organization management');
 assert.match(sidebar, /组织用户.+my-organization\?tab=members/, 'Leader menu must expose organization members');
 assert.match(sidebar, /新闻管理.+\/admin\/news/, 'administrator menu must expose Newsroom management');
-assert.match(newsPage, /https:\/\/news\.studyai\.now/, 'Newsroom bridge must target the production News origin');
-for (const capability of ['候选与人工复核', '文章与发布流程', '分类与标签']) {
-  assert.ok(newsPage.includes(capability), `Newsroom bridge must expose ${capability}`);
+assert.doesNotMatch(newsPage, /https:\/\/news\.studyai\.now/, 'unified News administration must never leave the main admin origin');
+for (const capability of ['采集来源', '候选与 Claims', '文章与发布', '分类与标签', 'Claim Ledger']) {
+  assert.ok(newsPage.includes(capability), `unified News administration must expose ${capability}`);
 }
+assert.match(worker, /pathname\.startsWith\('\/api\/admin\/news\/'\)/, 'main Worker must own every News admin API child route');
+assert.match(newsProxy, /await requireAdmin\(env\.DB, request\)/, 'News proxy must derive access from the main administrator session');
+assert.match(newsProxy, /x-studyai-admin-service-token/, 'News proxy must authenticate its private Service Binding request');
+assert.match(newsProxy, /x-studyai-admin-actor/, 'News audit records must identify the main StudyAINow administrator');
+assert.match(newsProxy, /x-news-csrf/, 'News mutations must enforce a same-origin CSRF signal');
+assert.doesNotMatch(newsProxy, /headers:\s*request\.headers/, 'browser cookies and authorization headers must not be forwarded wholesale');
+assert.match(wrangler, /binding = "NEWS_API"\s+service = "studyai-news-api"/, 'main Worker must bind privately to studyai-news-api');
 
 for (const route of ['/api/admin/organizations', '/api/admin/my-organization']) {
   assert.ok(worker.includes(`'${route}'`), `missing organization Worker route ${route}`);
@@ -122,5 +133,63 @@ for (const id of ['ai-engineering-progressive-assessment', 'inference-engine-sch
   assert.ok(interviewAdminCatalog.includes(id), `admin interview catalog must include ${id}`);
   assert.ok(interviewContent.includes(id), `public interview catalog must include ${id}`);
 }
+
+const adminUser = {
+  id: '90f4ec4a-7f34-42c1-b6f2-5ce48e9c2586',
+  email: 'admin@example.test',
+  display_name: 'News Admin',
+  username: 'news-admin',
+  status: 'active',
+  email_verified_at: '2026-09-03 00:00:00',
+  avatar_url: null,
+  organization_id: null,
+  organization_role: null,
+  organization_joined_at: null,
+};
+const adminDb = {
+  prepare(sql: string) {
+    const statement = {
+      bind: (..._values: unknown[]) => statement,
+      first: async () => sql.includes('FROM sessions') ? adminUser : null,
+      all: async () => ({ results: sql.includes('user_roles.role') ? [{ role: 'admin' }] : [] }),
+      run: async () => ({ success: true }),
+    };
+    return statement;
+  },
+} as unknown as D1Database;
+let forwarded: Request | null = null;
+const proxyEnv = {
+  DB: adminDb,
+  NEWS_ADMIN_SERVICE_TOKEN: 'test-news-service-token-with-at-least-32-characters',
+  NEWS_API: {
+    fetch: async (request: Request) => {
+      forwarded = request;
+      return Response.json({ ok: true, counts: {} }, { headers: { 'set-cookie': 'forbidden=1' } });
+    },
+  },
+} as unknown as Env;
+const getResponse = await proxyAdminNews({
+  request: new Request('https://studyai.now/api/admin/news/dashboard', {
+    headers: { cookie: 'studyainow_session=test-session', authorization: 'Bearer browser-secret' },
+  }),
+  env: proxyEnv,
+});
+assert.equal(getResponse.status, 200, 'an authenticated main administrator must reach the private News API');
+assert.equal(forwarded?.headers.get('cookie'), null, 'main session cookies must not leave the main Worker');
+assert.equal(forwarded?.headers.get('authorization'), null, 'browser authorization must not leave the main Worker');
+assert.equal(forwarded?.headers.get('x-studyai-admin-actor'), `studyai-user:${adminUser.id}`, 'proxy must bind the authenticated actor');
+assert.equal(getResponse.headers.get('set-cookie'), null, 'upstream cookies must not reach the browser');
+
+forwarded = null;
+const csrfResponse = await proxyAdminNews({
+  request: new Request('https://studyai.now/api/admin/news/candidates/enrich', {
+    method: 'POST',
+    headers: { cookie: 'studyainow_session=test-session', origin: 'https://evil.example', 'x-news-csrf': '1' },
+    body: '{}',
+  }),
+  env: proxyEnv,
+});
+assert.equal(csrfResponse.status, 403, 'cross-origin News mutations must be rejected');
+assert.equal(forwarded, null, 'rejected mutations must not invoke the private Worker');
 
 console.log('Admin control-panel verification passed.');

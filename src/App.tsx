@@ -133,7 +133,7 @@ function AppRoutes() {
           <Route path="knowledge-graph" element={<KnowledgeGraphPreview />} />
           <Route path="job-sources" element={<AdminJobSources />} />
           <Route path="jobs" element={<AdminJobs />} />
-          <Route path="news" element={<AdminNews />} />
+          <Route path="news/*" element={<AdminNews />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
         <Route path="/privacy" element={<LegalPage type="privacy" />} />

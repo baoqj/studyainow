@@ -26,7 +26,7 @@
 
 ```text
 studyainow/Code/
-├── studyai-news-web/       # studyai-news-web Worker：公开站 + /admin/news UI
+├── studyai-news-web/       # studyai-news-web Worker：仅公开 News 站
 ├── studyai-news-api/       # studyai-news-api Worker：API + 数据 + 工作流
 └── docs/news/              # 版本化计划、契约说明、运行与验收记录
 ```
@@ -82,8 +82,10 @@ studyainow/Code/
 
 ```mermaid
 flowchart LR
-    U[浏览器] --> W[studyai-news-web]
-    W -->|NEWS_API Service Binding| A[studyai-news-api]
+    U[公开浏览器] --> W[studyai-news-web]
+    M[主站管理员] --> C[studyainow-web /admin/news]
+    W -->|公开 NEWS_API Service Binding| A[studyai-news-api]
+    C -->|鉴权后私有 NEWS_API Service Binding| A
     A --> N[(studyai-news-db)]
     A --> R[(studyai-news-media)]
     A --> Q[Queues + Workflows]
@@ -95,8 +97,8 @@ flowchart LR
 
 - 对外承接 `news.studyai.now`；
 - 建议使用 Astro + React Islands，公共内容以 SSR/预渲染 HTML 输出；
-- `/admin/news` 也由该 Worker提供 UI；
-- `/api/news/v1/*` 与 `/api/admin/news/*` 原样转发给 `NEWS_API` Service Binding；
+- 不提供独立后台；`/admin/news*` 永久重定向到 `studyai.now/admin/news*`；
+- 只转发 `/api/news/v1/*`，明确拒绝在公开 News 主机上转发 `/api/admin/news/*`；
 - 不直接绑定 News D1、R2、Queues、Workflows 或 Vectorize。
 
 `studyai-news-api`：
@@ -107,18 +109,13 @@ flowchart LR
 - 管理来源、候选、故事、Claim、草稿、修订、审批、发布、纠错、播客和审计；
 - 不直接写 `studyainow-db`。
 
-Service Binding 可保持同源 API、避免浏览器 CORS，并允许两个 Worker独立发布。Cloudflare Access 的运行时上下文不会自动传播到下游 Service Binding，因此 P0 管理请求必须把可验证的 Access JWT 传入 API，并由 API 再次验证，不能只信任“请求来自 Web Worker”。
+Service Binding 可保持同源 API、避免浏览器 CORS，并允许 Worker 独立发布。根据用户在 P0-4 的明确调整，`studyainow-web` 先验证 host-only 主站 Session 与 `admin` 角色，再以独立服务密钥和可审计的主站用户 ID 调用私有 News API；浏览器 Cookie、Authorization 和服务密钥都不跨越错误的边界。
 
 ### 3.3 P0 身份边界
 
-推荐 P0 使用 Cloudflare Access 保护：
+P0 使用现有 `studyai.now/admin/*` 主站身份边界保护唯一的 News 后台。主 Worker 只接受同源 CSRF 信号并通过私有 Service Binding 转发；News API 只接受服务凭证或非浏览器运维 Bearer，审计 actor 使用主站管理员 ID。禁止把长期 Cookie 扩展到整个 `.studyai.now`，也禁止 News 公开主机暴露管理 API。
 
-- `news.studyai.now/admin/news*`；
-- `news.studyai.now/api/admin/news*`。
-
-API 使用 Access JWT 身份映射到 News 自己的 `editor_actor` 与角色（Viewer、Researcher、Editor、Publisher、Admin）。这只是员工后台授权，不复制公共用户账户。
-
-P1 再实现正式 StudyAINow 跨子域授权码/服务端 Session 与 Entitlement 契约。禁止把长期 Cookie简单扩展到整个 `.studyai.now`。
+P0-6 再补充分角色权限（Viewer、Researcher、Editor、Publisher、Admin）、高风险双人审核和可选 Cloudflare Access 纵深防御。
 
 ### 3.4 数据边界
 
@@ -198,7 +195,7 @@ test(news-api): ...
 - 先打通 10 个来源的纵向闭环，再扩到 30–50 个来源；
 - 免费内容优先，不做账号、收藏、付费墙、Stripe 和邮件广播；
 - 保留 RSS、基础 SEO、日报、深度文章和周播客，因为它们是内容产品的基本可验证输出；
-- Admin 放在 `news.studyai.now/admin/news`，不在 P0 修改现有主站 Admin 信息架构；
+- Admin 完全放在 `studyai.now/admin/news` 的现有管理信息架构内；`news.studyai.now` 只承载公开站；
 - P0 技能/课程关系可先使用经人工导入的只读规范快照，正式实时契约最晚在上线 Gate 前完成。
 
 ### P0-0：仓库与双 Worker 基线
@@ -235,6 +232,8 @@ test(news-api): ...
 
 ### P0-4：Claim Ledger 与来源约束生成
 
+状态：**执行中（2026-09-03）**。本阶段同时按用户要求取消 News 子域独立后台并将全部管理功能移入主站统一后台。
+
 - 输出：研究包、原子 Claim、证据、冲突/未验证状态、Prompt Registry、模型/成本/输入 hash 记录、快讯草稿。
 - 测试：数字、日期、引语和价格必须有 Claim；Prompt 注入样本；结构化输出失败与降级；相同输入幂等复用。
 - Gate：无来源的新事实导致草稿失败或回到人工队列。
@@ -245,9 +244,9 @@ test(news-api): ...
 - 测试：人工标注集 Precision@5、Recall@10；无效/合并/禁用 ID；Core 不可用时降级；阅读新闻绝不写成“掌握技能”。
 - Gate：向量结果只产生建议，正式关系必须可审、可撤回、可重算。
 
-### P0-6：`/admin/news` 编辑闭环
+### P0-6：统一 `/admin/news` 的高级编辑闭环
 
-- 说明：P0-3 已提前交付基础 Dashboard、Candidates、Articles、分类/标签、修订、审核、发布、纠错、下架、审计及主站入口；本阶段仍负责 Cloudflare Access JWT、正式 RBAC、高风险双人审核、版本对比/预览、自动保存和完整失败恢复。
+- 说明：P0-4 已将基础管理功能实装到 `studyai.now/admin/news`，并取消子域独立后台；本阶段仍负责正式 RBAC、高风险双人审核、版本对比/预览、自动保存、完整失败恢复与可选 Access 纵深防御。
 - 输出：Dashboard、Sources、Candidates、Story/Claim、Articles、Skill Review、Workflow/Audit；自动保存、版本对比、预览、批准、排期、撤回、纠错。
 - 测试：Access JWT/RBAC、越权、CSRF、并发编辑、幂等发布、失败重试、敏感快照字段过滤；桌面与 390 px 视觉回归。
 - Gate：生成者不能绕过 Publisher 角色直接发布，高风险内容支持第二审核人规则。

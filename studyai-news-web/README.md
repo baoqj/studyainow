@@ -2,19 +2,19 @@
 
 Cloudflare Worker frontend for `news.studyai.now`.
 
-P0-3 status: Astro/React foundation, server-rendered operational page, same-origin API
-forwarding, and the `/admin/news` editorial console. Administrators can review clustered
-candidates, lock categories/tags, create and revise articles, approve, publish, correct,
-withdraw and reopen content, and maintain the controlled taxonomy.
+P0-4 status: Astro foundation, server-rendered public shell and public API forwarding.
+The former standalone News admin has been retired; all administration now lives inside
+the existing `studyai.now/admin/news` control panel.
 
 ## Boundary
 
 This project owns:
 
-- public and future `/admin/news` page rendering;
+- public News page rendering;
 - initial HTML, metadata and edge-facing responses;
 - browser interaction;
-- forwarding `/api/news/v1/*` and `/api/admin/news/*` to `studyai-news-api`.
+- forwarding only `/api/news/v1/*` to `studyai-news-api`;
+- permanent redirects from former `/admin/news*` URLs to the unified main admin.
 
 It does not own News D1 migrations, crawling, AI/TTS workflows, publication state or StudyAINow master data. It has no direct D1, R2, Queue, Workflow or Vectorize binding.
 
@@ -48,11 +48,8 @@ npm run deploy
 ## Current routes
 
 - `GET /` — server-rendered foundation status
-- `GET /admin/news` — editorial dashboard
-- `GET /admin/news/candidates` — clustered candidate inbox
-- `GET /admin/news/articles` and `/admin/news/articles/{id}` — article list/editor
-- `GET /admin/news/taxonomy` — category and tag management
+- `GET /admin/news*` — `308` redirect to `https://studyai.now/admin/news*`
 - `ALL /api/news/v1/*` — forwarded to the API Worker
-- `ALL /api/admin/news/*` — authenticated editorial API forwarding boundary
+- `ALL /api/admin/news/*` — rejected with `404`; the public hostname is not an admin boundary
 
 Product requirements remain in `../../PRD/News/`. The approved execution plan is `../docs/news/CODEX_DEVELOPMENT_PLAN.zh-CN.md`.

@@ -74,6 +74,7 @@ import { onRequestPost as sendAdminEmailTest } from '../functions/api/admin/emai
 import { onRequestPost as localizeCurriculum } from '../functions/api/admin/curriculum/localize';
 import { onRequestGet as getAdminTokenUsage } from '../functions/api/admin/token-usage/index';
 import { onRequestGet as getAdminUserTokenUsage } from '../functions/api/admin/token-usage/users/[userId]';
+import { proxyAdminNews } from '../functions/api/admin/news/proxy';
 import { inspectDueJobUrls, reindexCurrentJobSkillEvidence, runDueSourceSync, runInitialSourceSync, runPendingJobPresentationRefresh } from '../functions/_lib/jobs';
 import { enqueuePublishedCourseKnowledge, runKnowledgeGraphRefresh } from '../functions/_lib/knowledgeGraph';
 import { runPendingJobVectorIndex } from '../functions/_lib/jobVectors';
@@ -367,6 +368,9 @@ async function apiResponse(request: Request, env: Env, ctx: ExecutionContext) {
   }
   if (pathname === '/api/jobs') return method === 'GET' ? run(listJobs, request, env, ctx) : methodNotAllowed('GET');
   if (pathname === '/api/jobs/bookmarks') return method === 'GET' ? run(listJobBookmarks, request, env, ctx) : methodNotAllowed('GET');
+  if (pathname === '/api/admin/news' || pathname.startsWith('/api/admin/news/')) {
+    return proxyAdminNews({ request, env });
+  }
   if (pathname === '/api/admin/job-sources') {
     if (method === 'GET') return run(listJobSources, request, env, ctx);
     if (method === 'POST') return run(createJobSource, request, env, ctx);

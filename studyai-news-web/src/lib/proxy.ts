@@ -1,6 +1,6 @@
 import type { NewsApiFetcher } from './health';
 
-const ALLOWED_API_PREFIXES = ['/api/news/v1/', '/api/admin/news/'] as const;
+const ALLOWED_API_PREFIXES = ['/api/news/v1/'] as const;
 
 function jsonError(status: number, code: string, message: string): Response {
   return Response.json({
