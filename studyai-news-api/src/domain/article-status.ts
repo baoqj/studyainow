@@ -35,6 +35,7 @@ export const ARTICLE_STATUS_TRANSITIONS: readonly ArticleStatusTransition[] = [
   { from: 'corrected', to: 'withdrawn', requiresHumanApproval: true },
   { from: 'distributed', to: 'corrected', requiresHumanApproval: true },
   { from: 'distributed', to: 'withdrawn', requiresHumanApproval: true },
+  { from: 'withdrawn', to: 'draft', requiresHumanApproval: false },
 ];
 
 export function canTransitionArticle(from: ArticleStatus, to: ArticleStatus): boolean {

@@ -2,9 +2,9 @@
 
 Cloudflare Worker backend for StudyAI News.
 
-P0-2 status: the independent News D1 schema now includes an approved-source registry,
-bounded RSS/Atom ingestion, private R2 feed snapshots, source health and operator APIs.
-Story clustering, classification and entities remain P0-3 work.
+P0-3 status: the independent News D1 schema includes approved-source ingestion,
+deterministic cross-source clustering, controlled categories/tags/entities, immutable
+metadata and article revisions, human approval gates, publication events and audit logs.
 
 ## Boundary
 
@@ -48,7 +48,8 @@ npm run deploy
 
 The staging and production environments run the ingestion scheduler every 15 minutes.
 Each scheduled invocation claims no more than two due sources; each source has its
-own minimum polling interval and processes at most 20 current feed entries.
+own minimum polling interval and processes at most 20 current feed entries. Newly
+normalized candidates are then clustered and enriched with the versioned ruleset.
 
 Configure the bootstrap operator credential as a Worker secret; never store it in
 `.dev.vars`, shell history or Git:
@@ -58,8 +59,11 @@ npx wrangler secret put INGEST_ADMIN_TOKEN --env staging
 npx wrangler secret put INGEST_ADMIN_TOKEN --env production
 ```
 
-The credential must contain at least 32 characters. P0-6 replaces this bootstrap
-boundary with Cloudflare Access JWT validation and role mapping.
+The credential must contain at least 32 characters. The admin UI exchanges it once for
+an 8-hour, signed, `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Cookie-authenticated
+mutations also require same-origin verification and an explicit CSRF header; the token
+is never stored in browser local/session storage. P0-6 replaces this bootstrap boundary
+with Cloudflare Access JWT validation and individual role mapping.
 
 The health endpoint returns HTTP 503 until the bound database reports the expected schema version. This prevents application code from being treated as healthy before its migration is present.
 
@@ -96,9 +100,24 @@ News migrations do not modify StudyAINow Core data. They are additive and intent
 - `PATCH /api/admin/news/sources/{sourceId}`
 - `DELETE /api/admin/news/sources/{sourceId}`
 - `POST /api/admin/news/sources/{sourceId}/run` (requires `Idempotency-Key`)
+- `POST|GET|DELETE /api/admin/news/session`
+- `GET /api/admin/news/dashboard`
+- `GET /api/admin/news/candidates`
+- `POST /api/admin/news/candidates/enrich`
+- `PATCH /api/admin/news/candidates/{storyId}`
+- `GET|POST /api/admin/news/articles`
+- `GET|PATCH /api/admin/news/articles/{articleId}`
+- `POST /api/admin/news/articles/{articleId}/actions/{action}`
+- `GET /api/admin/news/taxonomy`
+- `POST /api/admin/news/taxonomy/tags`
+- `PATCH /api/admin/news/taxonomy/{taxonomyId}`
+- `POST /api/admin/news/taxonomy/{taxonomyId}/merge`
 
-All `/api/admin/news/*` endpoints require `Authorization: Bearer …`. Newly created
-sources are always paused with `review_required`; an operator must separately record
-robots/policy approval before the scheduler can run them.
+All `/api/admin/news/*` endpoints require the bootstrap bearer credential or the short
+admin session, except session creation which requires the bearer credential. Newly
+created sources remain paused with `review_required`; an operator must separately record
+robots/policy approval before the scheduler can run them. Primary categories are seeded
+as a locked set of eight; automated enrichment cannot create a ninth category or
+overwrite human-locked story metadata.
 
 Product requirements remain in `../../PRD/News/`. The approved execution plan is `../docs/news/CODEX_DEVELOPMENT_PLAN.zh-CN.md`.

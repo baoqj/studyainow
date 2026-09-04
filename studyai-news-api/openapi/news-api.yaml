@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: StudyAI News API
-  version: 0.3.1
+  version: 0.4.0
   description: Versioned contract for the StudyAI News public and editorial APIs.
 servers:
   - url: https://news.studyai.now
@@ -167,12 +167,212 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ManualIngestionResponse"
+  /api/admin/news/session:
+    post:
+      operationId: createNewsAdminSession
+      summary: Exchange an administrator bearer credential for a short HttpOnly session
+      security:
+        - ingestionOperator: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      operationId: getNewsAdminSession
+      summary: Validate the active administrator session
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      operationId: deleteNewsAdminSession
+      summary: End the active administrator session
+      security:
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+  /api/admin/news/dashboard:
+    get:
+      operationId: getNewsEditorialDashboard
+      summary: Read editorial queue counts
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+  /api/admin/news/candidates:
+    get:
+      operationId: listNewsCandidates
+      summary: List clustered and enriched source candidates
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+  /api/admin/news/candidates/enrich:
+    post:
+      operationId: enrichNewsCandidates
+      summary: Run deterministic deduplication and controlled metadata enrichment
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/admin/news/candidates/{storyId}:
+    parameters:
+      - $ref: "#/components/parameters/StoryId"
+    patch:
+      operationId: updateNewsCandidateMetadata
+      summary: Human-review and lock a candidate category and tags
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/admin/news/articles:
+    get:
+      operationId: listNewsArticles
+      summary: List editorial articles and publication states
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+    post:
+      operationId: createNewsArticle
+      summary: Create a manually edited article and immutable first revision
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "201":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/admin/news/articles/{articleId}:
+    parameters:
+      - $ref: "#/components/parameters/ArticleId"
+    get:
+      operationId: getNewsArticle
+      summary: Read an article with revisions, approvals, taxonomy and audit history
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: reviseNewsArticle
+      summary: Save an immutable article revision using optimistic concurrency
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: Article version conflict
+  /api/admin/news/articles/{articleId}/actions/{action}:
+    parameters:
+      - $ref: "#/components/parameters/ArticleId"
+      - name: action
+        in: path
+        required: true
+        schema:
+          type: string
+          enum: [submit, return, reject, approve, schedule, publish, correct, withdraw, reopen]
+    post:
+      operationId: performNewsArticleAction
+      summary: Perform an audited, idempotent editorial state transition
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/admin/news/taxonomy:
+    get:
+      operationId: listNewsTaxonomy
+      summary: List controlled primary categories and tags
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+  /api/admin/news/taxonomy/tags:
+    post:
+      operationId: createNewsTag
+      summary: Create a human-controlled tag
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "201":
+          $ref: "#/components/responses/AdminData"
+  /api/admin/news/taxonomy/{taxonomyId}:
+    parameters:
+      - $ref: "#/components/parameters/TaxonomyId"
+    patch:
+      operationId: updateNewsTaxonomy
+      summary: Update a category or tag display name, aliases and status
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
+  /api/admin/news/taxonomy/{taxonomyId}/merge:
+    parameters:
+      - $ref: "#/components/parameters/TaxonomyId"
+    post:
+      operationId: mergeNewsTag
+      summary: Merge a tag into an active canonical tag
+      security:
+        - ingestionOperator: []
+        - adminSession: []
+      responses:
+        "200":
+          $ref: "#/components/responses/AdminData"
 components:
   securitySchemes:
     ingestionOperator:
       type: http
       scheme: bearer
       bearerFormat: opaque-operator-token
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: studyai_news_admin
   parameters:
     SourceId:
       name: sourceId
@@ -181,6 +381,32 @@ components:
       schema:
         type: string
         pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    StoryId:
+      name: storyId
+      in: path
+      required: true
+      schema:
+        type: string
+    ArticleId:
+      name: articleId
+      in: path
+      required: true
+      schema:
+        type: string
+    TaxonomyId:
+      name: taxonomyId
+      in: path
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 120
   schemas:
     HealthResponse:
       type: object
@@ -486,6 +712,20 @@ components:
         traceId:
           type: string
   responses:
+    AdminData:
+      description: Authenticated editorial response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: true
+            required: [ok, traceId]
+            properties:
+              ok:
+                type: boolean
+                const: true
+              traceId:
+                type: string
     BadRequest:
       description: Request validation or source policy failed
       content:
@@ -493,13 +733,13 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     Unauthorized:
-      description: Ingestion operator token is missing or invalid
+      description: News administrator credential or session is missing or invalid
       content:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
     NotFound:
-      description: Source was not found
+      description: Requested News object was not found
       content:
         application/json:
           schema:

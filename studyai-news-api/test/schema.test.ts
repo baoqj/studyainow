@@ -41,6 +41,7 @@ describe('News D1 migrations', () => {
       '0003_ingestion_runtime.sql',
       '0004_seed_p0_sources.sql',
       '0005_parser_reprocessing.sql',
+      '0006_editorial_metadata.sql',
     ]);
 
     const db = openDatabase();
@@ -99,6 +100,9 @@ describe('News D1 migrations', () => {
       'source_ingestion_policy',
       'source_fetch_run',
       'source_feed_snapshot',
+      'story_metadata_revision',
+      'story_taxonomy',
+      'story_entity',
     ]));
 
     for (const forbiddenTable of ['users', 'organizations', 'skills', 'courses', 'knowledge_points']) {
@@ -123,6 +127,9 @@ describe('News D1 migrations', () => {
       'idx_source_ingestion_policy_status',
       'idx_source_fetch_run_status_started',
       'idx_source_feed_snapshot_source_fetched',
+      'idx_source_item_simhash',
+      'idx_story_metadata_revision_story_created',
+      'idx_story_taxonomy_one_primary',
     ]));
 
     expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);

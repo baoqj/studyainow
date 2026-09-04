@@ -17,6 +17,20 @@ const requiredOperations = {
   updateNewsSource: contract?.paths?.['/api/admin/news/sources/{sourceId}']?.patch,
   retireNewsSource: contract?.paths?.['/api/admin/news/sources/{sourceId}']?.delete,
   runNewsSource: contract?.paths?.['/api/admin/news/sources/{sourceId}/run']?.post,
+  createNewsAdminSession: contract?.paths?.['/api/admin/news/session']?.post,
+  getNewsEditorialDashboard: contract?.paths?.['/api/admin/news/dashboard']?.get,
+  listNewsCandidates: contract?.paths?.['/api/admin/news/candidates']?.get,
+  enrichNewsCandidates: contract?.paths?.['/api/admin/news/candidates/enrich']?.post,
+  updateNewsCandidateMetadata: contract?.paths?.['/api/admin/news/candidates/{storyId}']?.patch,
+  listNewsArticles: contract?.paths?.['/api/admin/news/articles']?.get,
+  createNewsArticle: contract?.paths?.['/api/admin/news/articles']?.post,
+  getNewsArticle: contract?.paths?.['/api/admin/news/articles/{articleId}']?.get,
+  reviseNewsArticle: contract?.paths?.['/api/admin/news/articles/{articleId}']?.patch,
+  performNewsArticleAction: contract?.paths?.['/api/admin/news/articles/{articleId}/actions/{action}']?.post,
+  listNewsTaxonomy: contract?.paths?.['/api/admin/news/taxonomy']?.get,
+  createNewsTag: contract?.paths?.['/api/admin/news/taxonomy/tags']?.post,
+  updateNewsTaxonomy: contract?.paths?.['/api/admin/news/taxonomy/{taxonomyId}']?.patch,
+  mergeNewsTag: contract?.paths?.['/api/admin/news/taxonomy/{taxonomyId}/merge']?.post,
 };
 
 const failures = [];
@@ -32,8 +46,8 @@ if (contract?.components?.securitySchemes?.ingestionOperator?.scheme !== 'bearer
 
 for (const [operationId, operation] of Object.entries(requiredOperations)) {
   if (operation?.operationId !== operationId) failures.push(`${operationId} operation is missing`);
-  if (!operation?.security?.some((entry) => Object.hasOwn(entry, 'ingestionOperator'))) {
-    failures.push(`${operationId} must require ingestionOperator`);
+  if (!operation?.security?.some((entry) => Object.hasOwn(entry, 'ingestionOperator') || Object.hasOwn(entry, 'adminSession'))) {
+    failures.push(`${operationId} must require News administrator authentication`);
   }
 }
 

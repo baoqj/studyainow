@@ -1,3 +1,4 @@
+import { isAdminBearerAuthorized } from '../admin/auth';
 import type { Env } from '../env';
 import { PARSER_VERSION } from './feed-parser';
 import { probeSourceFeed } from './probe';
@@ -6,24 +7,8 @@ import { runManualIngestion } from './service';
 import type { SourceType, TrustTier } from './types';
 import { isBlockedHostname, validateAllowedTarget } from './url';
 
-function constantTimeEqual(left: string, right: string): boolean {
-  const encoder = new TextEncoder();
-  const leftBytes = encoder.encode(left);
-  const rightBytes = encoder.encode(right);
-  const maximumLength = Math.max(leftBytes.length, rightBytes.length);
-  let difference = leftBytes.length ^ rightBytes.length;
-  for (let index = 0; index < maximumLength; index += 1) {
-    difference |= (leftBytes[index] ?? 0) ^ (rightBytes[index] ?? 0);
-  }
-  return difference === 0;
-}
-
 export function isIngestionAdminAuthorized(request: Request, env: Env): boolean {
-  const expected = env.INGEST_ADMIN_TOKEN;
-  if (!expected || expected.length < 32) return false;
-  const header = request.headers.get('authorization') ?? '';
-  if (!header.startsWith('Bearer ')) return false;
-  return constantTimeEqual(header.slice(7), expected);
+  return isAdminBearerAuthorized(request, env);
 }
 
 function record(value: unknown): Record<string, unknown> {
