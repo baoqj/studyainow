@@ -69,8 +69,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .candidate-meta, .chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 .candidate-meta { color: var(--muted); font-size: .72rem; }
 .candidate-meta span + span::before { margin-right: 7px; content: "\00b7"; }
-.candidate-meta .lock-label { padding: 2px 6px; color: #755116; background: #f4e5bc; }
-.candidate-meta .lock-label::before { content: none; }
+.candidate-meta .lock-label, .candidate-meta .review-label { padding: 2px 6px; color: #755116; background: #f4e5bc; }
+.candidate-meta .review-label { color: #8d3d34; background: #fce2dd; }
+.candidate-meta .lock-label::before, .candidate-meta .review-label::before { content: none; }
 .chip-row span { padding: 4px 8px; border: 1px solid #cfd7d3; color: #53625a; background: #f3f6f3; font-size: .71rem; }
 .chip-row .category-chip { color: #fff; border-color: var(--blue); background: var(--blue); }
 .chip-row .entity-chip { color: #6f4521; border-color: #e3c8a8; background: #fff5e7; }

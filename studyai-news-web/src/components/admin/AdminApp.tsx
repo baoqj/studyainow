@@ -315,7 +315,7 @@ function CandidatePanel({
     {candidates.length === 0 ? <EmptyState title="暂无候选新闻" detail="采集完成后，在此执行聚类与分类。" /> : <div className="candidate-list">
       {candidates.map((candidate) => <article className="candidate-card" key={candidate.id}>
         <div className="candidate-main">
-          <div className="candidate-meta"><span>{formatTime(candidate.occurredAt)}</span><span>{candidate.sourceCount} 个来源</span><span>质量 {candidate.maxQualityScore ?? '—'}</span>{candidate.locked && <span className="lock-label">已锁定</span>}</div>
+          <div className="candidate-meta"><span>{formatTime(candidate.occurredAt)}</span><span>{candidate.sourceCount} 个来源</span><span>质量 {candidate.maxQualityScore ?? '—'}</span>{candidate.category && <span>分类信心 {Math.round(candidate.category.confidence * 100)}%</span>}{candidate.category && candidate.category.confidence < 0.6 && <span className="review-label">待人工复核</span>}{candidate.locked && <span className="lock-label">已锁定</span>}</div>
           <h2>{candidate.title}</h2>
           <div className="chip-row">{candidate.category && <span className="category-chip">{candidate.category.name}</span>}{candidate.tags.map((tag) => <span key={tag.id}>{tag.name}</span>)}{candidate.entities.map((entity) => <span className="entity-chip" key={entity.id}>{entity.name}</span>)}</div>
           <details><summary>查看来源证据</summary><ul>{candidate.sources.map((source) => <li key={source.id}><a href={source.url} target="_blank" rel="noreferrer">{source.sourceName} · {source.title}</a><small>{source.relationType} · 质量 {source.qualityScore ?? '—'}</small></li>)}</ul></details>
